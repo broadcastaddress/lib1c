@@ -1,0 +1,113 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of Session class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+function init() export
+    return thisform;
+endfunction
+
+// Base class for errors based on HTTP status codes >= 400
+function HTTPError(msg,env=undefined) export
+    return exception.BaseException("HTTPError",msg,env);
+endfunction
+
+// Exception raised when a 412 HTTP error is received in response to a request.
+function PreconditionFailed(msg,env=undefined) export
+    return exception.BaseException("PreconditionFailed",msg,env);
+endfunction
+
+// Exception raised when a 404 HTTP error is received in response to a request.
+function ResourceNotFound(msg,env=undefined) export
+    return exception.BaseException("ResourceNotFound",msg,env);
+endfunction
+
+// Exception raised when a 409 HTTP error is received in response to a request.
+function ResourceConflict(msg,env=undefined) export
+    return exception.BaseException("ResourceConflict",msg,env);
+endfunction
+
+// Exception raised when an unexpected HTTP error is received in response to a request.
+function ServerError(msg,status,env=undefined) export
+    return exception.BaseException("ServerError["+string(status)+"]",msg,env);
+endfunction
+
+// Exception raised when the server requires authentication credentials
+// but either none are provided, or they are incorrect.
+function Unauthorized(msg,env=undefined) export
+    return exception.BaseException("Unauthorized",msg,env);
+endfunction
+
+///////////////////////////////////////////////////////////////////
+
+function request(method,url,body=undefined,headers=undefined) export
+    req=urllib.request(url,method);
+    if headers<>undefined then
+        for each item in headers do
+            req.headers.insert(item.key,item.value);
+        enddo;
+    endif;
+    req.headers.insert("Accept","application/json");
+    req.headers.insert("User-Agent","CouchDB-1C/"+self.VERSION);
+    
+    if body<>undefined then
+        if typeof(body)<>type("string") then
+            req.query=json.encode(body);
+            req.headers.insert("Content-Type","application/json");
+        else
+            // assume that we received json-encoded string
+            len=convert.to_string(strlen(body)); //fix for spaces
+            req.headers.insert("Content-Length",len);
+            req.query=body;
+        endif;
+    endif;
+    if check.is_true(req.url.username) then
+        req.headers.insert(
+            "Authorization",
+            "Basic "+string.base64encode(req.url.username+":"
+                    +?(req.url.password<>undefined,req.url.password,""))
+        );
+    endif;
+    
+    // does this really need?
+    n=0;
+    limit=10;
+    while True do
+        try
+            res=urllib.send(req);
+            break;
+        except
+            err=exception.catch(errorInfo());
+            if err.type="XMLHTTPError" or n<=limit then
+                n=n+1;
+            else
+                raise;
+            endif;
+        endtry;
+    enddo;
+    
+    // Handle errors
+    if res.status>=400 then
+        env=new structure("method,url,body,headers,res",
+                           method,url,body,headers,res);
+        msg=?(res.data<>"",json.decode(res.data),"");
+        if typeof(msg)<>type("string") then
+            msg=msg["error"]+": "+msg["reason"];
+        endif;
+        if res.status=401 then
+            raise Unauthorized(msg,env);
+        elsif res.status=404 then
+            raise ResourceNotFound(msg,env);
+        elsif res.status=409 then
+            raise ResourceConflict(msg,env);
+        elsif res.status=412 then
+            raise PreconditionFailed(msg,env);
+        else
+            raise ServerError(msg,res.status,env);
+        endif;
+    endif;
+    return res;
+endfunction

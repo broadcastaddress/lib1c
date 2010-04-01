@@ -1,0 +1,468 @@
+﻿function failureException(src,msg,defaultMsg,kwargs=undefined,env=undefined)
+    //defaultMsg=string.reformat(defaultMsg,kwargs);
+    env=?(env=undefined,new Structure(),env);
+    if check.is_structure(env) then
+        raise exception.TypeError(
+            "Exception environ must be <structure>, got <{env!t}>",
+            new Structure("msg,defaultMsg,kwargs,env",
+                           msg,defaultMsg,kwargs,env)
+        );
+    endif;
+    msg=?(msg=undefined,defaultMsg,defaultMsg+":"+chars.cr+msg);
+    msg="("+src+") "+msg;
+    raise exception.BaseException("AssertError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function fail(src="<unknown>",msg=undefined,env=undefined) export
+    failureException(src,msg,"",new Structure(),env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_true(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_true(expr) then
+        defaultMsg="The {expr} is a lie!";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_false(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_false(expr) then
+        defaultMsg="The {expr} is not False/Empty/undefined";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_null(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_null(expr) then
+        defaultMsg="{expr} is not Null";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_null(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_not_null(expr) then
+        defaultMsg="{expr} is Null";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_undefined(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_undefined(expr) then
+        defaultMsg="{expr} has undefined value";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_undefined(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_not_undefined(expr) then
+        defaultMsg="{expr} has not undefined value";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_boolean(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_boolean(expr) then
+        defaultMsg="{expr} is not <boolean> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_number(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_number(expr) then
+        defaultMsg="{expr} is not <number> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_string(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_string(expr) then
+        defaultMsg="{expr} is not <string> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_date(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_date(expr) then
+        defaultMsg="{expr} is not <date> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_array(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_array(expr) then
+        defaultMsg="{expr} is not <array> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_fixedarray(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_fixedarray(expr) then
+        defaultMsg="{expr} is not <fixedarray> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_structure(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_structure(expr) then
+        defaultMsg="{expr} is not <structure> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_map(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_map(expr) then
+        defaultMsg="{expr} is not <map> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_valuelist(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_valuelist(expr) then
+        defaultMsg="{expr} is not <valuelist> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function metadata_contains(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.metadata_contains(expr) then
+        defaultMsg="{expr} is not metadata object";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function not_metadata_contains(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.not_metadata_contains(expr) then
+        defaultMsg="{expr} is metadata object";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_object(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_object(expr) then
+        defaultMsg="{expr} is not <object> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_object(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_not_object(expr) then
+        defaultMsg="{expr} is <object> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_ref(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_ref(expr) then
+        defaultMsg="{expr} is not metadata object reference";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_ref(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_not_ref(expr) then
+        defaultMsg="{expr} is metadata object reference";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_empty_ref(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_empty_ref(expr) then
+        defaultMsg="{expr} is not empty reference";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function type_is(expr,typelist,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.type_is(expr,typelist) then
+        defaultMsg="unexpected type of {expr} instead one of {typelist}";
+        failureException(src,msg,defaultMsg,new Structure("expr,typelist",expr,typelist),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function type_is_not(expr,typelist,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.type_is_not(expr,typelist) then
+        defaultMsg="type of {expr} is one of unexpected ones: {typelist}";
+        failureException(src,msg,defaultMsg,new Structure("expr,typelist",expr,typelist),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_sequence(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_sequence(expr) then
+        defaultMsg="expr is not sequence (<array>,<fixedarray>,<valuelist>) subtype";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_array_or_fixedarray(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_array_or_fixedarray(expr) then
+        defaultMsg="expr has not an <array> nor <fixedarray> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_structure_or_map(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_structure_or_map(expr) then
+        defaultMsg="{expr} is not a <structure> nor <map> type";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_iterable(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_iterable(expr) then
+        defaultMsg="{expr} does not support iteration";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_bin(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_bin(expr) then
+        defaultMsg="{expr} is not a number in binary base";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_binarr(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_binarr(expr) then
+        defaultMsg="{expr} is not binary array";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_oct(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_oct(expr) then
+        defaultMsg="{expr} is not a number in octal base";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_hex(expr,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_hex(expr) then
+        defaultMsg="{expr} is not a number in hexdecimal base";
+        failureException(src,msg,defaultMsg,new Structure("expr",expr),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_equal(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_equal(a,b) then
+        defaultMsg="{a} != {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_equal(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_not_equal(a,b) then
+        defaultMsg="{a} == {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_almost_equal(a,b,places=7,src="<unknown>",msg=undefined,env=undefined) export
+    if False then
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_almost_rqual(a,b,places=7,src="<unknown>",msg=undefined,env=undefined) export
+    if False then
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_greater(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_greater(a,b) then
+        defaultMsg="{a} is not greater than {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_greater_equal(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_greater_equal(a,b) then
+        defaultMsg="{a} is not greater or equal to {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_less(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_less(a,b) then
+        defaultMsg="{a} is not less than {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_less_equal(a,b,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_less_equal(a,b) then
+        defaultMsg="{a} is not less or equal to {b}";
+        failureException(src,msg,defaultMsg,new Structure("a,b",a,b),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_in_range(expr,lbound,ubound,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_in_range(expr,lbound,ubound) then
+        defaultMsg="{a} is not less or equal to {b}";
+        failureException(src,msg,defaultMsg,new Structure("expr,lbound,ubound",expr,lbound,ubound),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_regex_matches(text,pattern,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.regex_match(text,pattern) then
+        defaultMsg="RegExp didn't match: {pattern} not found in {text}";
+        failureException(src,msg,defaultMsg,new Structure("pattern,text",pattern,text),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_in(member,container,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.is_in(member,container) then
+        defaultMsg="{member} not found in {container}";
+        failureException(src,msg,defaultMsg,new Structure("member,container",member,container),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_not_in(member,container,src="<unknown>",msg=undefined,env=undefined) export
+    if check.is_in(member,container) then
+        defaultMsg="{member} unexpectedly found in {container}";
+        failureException(src,msg,defaultMsg,new Structure("member,container",member,container),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function hasattr(expr,attrs,src="<unknown>",msg=undefined,env=undefined) export
+    if not check.hasattr(expr,attrs) then
+        defaultMsg="{expr} has no one of this keys: {attrs}";
+        failureException(src,msg,defaultMsg,new Structure("expr,attrs",expr,attrs),env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////

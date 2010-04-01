@@ -1,0 +1,61 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of PermamentView class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+var _name;
+var _resource;
+var _wrapper;
+
+function init(url,name,wrapper=undefined,session=undefined) export
+    if check.is_string(url) then
+        _resource=self.Resource(url,session);
+    else
+        _resource=url;
+    endif;
+    _name=name;
+    _wrapper=wrapper;
+    return thisform;
+endfunction
+
+function repr() export
+    return "<View "+_name+">";
+endfunction
+
+function exec(val options) export
+    if options=undefined then
+        options=new map();
+    endif;
+    if check.hasattr(options,"keys") then
+        options.delete("keys");
+        keys=new Structure("keys",options);
+        res=_resource.post_json(undefined,keys,undefined,encode_options(options));
+    else
+        path=options.get("path");
+        if path<>undefined then
+            options.delete("path");
+        endif;
+        headers=options.get("headers");
+        if headers<>undefined then
+            options.delete("headers");
+        endif;
+        res=_resource.get_json(path,headers,options);
+    endif;
+    return res.data;
+endfunction
+
+function encode_options(options)
+    retval=new map();
+    for each item in options do
+        if (item.key="key" or item.key="startkey" or item.key="endkey")
+            and not check.is_string(item.value) then
+            retval.insert(item.key,json.encode(item.value));
+        else
+            retval.insert(item.key,item.value);
+        endif;
+    enddo;
+    return retval;
+endfunction

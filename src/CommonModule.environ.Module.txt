@@ -1,0 +1,337 @@
+﻿function init()
+    doc=new DOMDocument("","root");
+    save(doc);
+    environ.set("/exceptions");
+    return doc;
+endfunction
+
+function EnvironKeyError(msg=undefined,env=undefined)
+    return exception.BaseException("EnvironKeyError",msg,env);
+endfunction
+
+function _preq(key,value=undefined,attrs=undefined,limit=0,offset=0)
+    if not check.is_string(key) then
+        raise exception.TypeError();
+    endif;
+    key="/root"+key;
+    if key="/root" or key="/root/" then
+        raise EnvironKeyError(
+            "Access to root node is not allowed",
+            new Structure("key,value,attrs,limit,offset",
+                           key,value,attrs,limit,offset));
+    endif;
+    if attrs<>undefined then
+        if not check.is_structure_or_map(attrs) then
+            raise exception.TypeError();
+        endif;
+        for each item in attrs do
+            if not check.is_string(item.key) then
+                raise exception.TypeError();
+            endif;
+        enddo;
+    endif;
+    if limit<>0 then
+        if not check.is_number(limit) then
+            raise exception.TypeError();
+        endif;
+        if not limit>0 then
+            raise exception.ValueError();
+        endif;
+    endif;
+    if offset<>0 then
+        if not check.is_number(offset) then
+            raise exception.TypeError();
+        endif;
+        if not offset>0 then
+            raise exception.ValueError();
+        endif;
+    endif;
+endfunction
+
+function _get(key,limit=0,offset=0)
+    doc=load();
+    i=0;
+    res=new Array();
+    qres=_query(doc,key);
+    node=qres.iterateNext();
+    limit=limit+offset;
+    while node<>undefined do
+        if offset<>0 and i<>offset then
+            i=i+1;
+            continue;
+        endif;
+        if limit<>0 and i=limit then
+            break;
+        endif;
+        res.add(_getvalue(node));
+        node=qres.iterateNext();
+    enddo;
+    return res;
+endfunction
+
+function _set(key,value=undefined,attrs=undefined,limit=0,offset=0)
+    doc=load();
+    res=_query(doc,key);
+    node=res.iterateNext();
+    if node=undefined then
+        return _put(key,value,attrs);
+    endif;
+    if attrs=undefined and value=undefined then
+        return 0;
+    endif;
+    i=0;
+    limit=limit+offset;
+    while True do
+        if offset<>0 and i<>offset then
+            i=i+1;
+            continue;
+        endif;
+        if limit<>0 and i=limit then
+            break;
+        endif;
+        if value<>undefined then
+            _setvalue(node,value);
+        endif;
+        if attrs<>undefined then
+            for each item in attrs do
+                node.setAttribute(item.key,convert.to_string(item.value));
+            enddo;
+        endif;
+        i=i+1;
+        if res.invalidIteratorState then
+        // мы можем сломать XPathResultIterator, если создали элемент
+        // ранее. Впрочем, он нам больше и не нужен.
+            break;
+        endif;
+        node=res.iterateNext();
+        if node=undefined then
+            break;
+        endif;
+    enddo;
+    save(doc);
+    return i;
+endfunction
+
+function _put(key,value,attrs=undefined)
+    doc=load();
+    list=string.split(key,"/");
+    index=2;
+    qkey="/root";
+    len=list.ubound();
+    prevnode=_query(doc,qkey).iterateNext();
+    while index<len do
+        qkey=qkey+"/"+list[index];
+        node=_query(doc,qkey).iterateNext();
+        if node=undefined then
+            break;
+        endif;
+        prevnode=node;
+        index=index+1;
+    enddo;
+    node=prevnode;
+    for i=index to len do
+        name=mid(list[i],1,find(find(list[i],"@")-1,"[")-1);
+        node=node.appendChild(doc.createElement(name));
+    enddo;
+    if value<>undefined then
+        _setvalue(node,value);
+    endif;
+    if attrs<>undefined then
+        for each item in attrs do
+            node.setAttribute(item.key,convert.to_string(item.value));
+        enddo;
+    endif;
+    save(doc);
+    return 1;
+endfunction
+
+function _del(key,limit,offset)
+    doc=load();
+    i=0;
+    arr=new Array();
+    res=_query(doc,key);
+    node=res.iterateNext();
+    limit=limit+offset;
+    while node<>undefined do
+        if offset<>0 and i<>offset then
+            i=i+1;
+            continue;
+        endif;
+        if limit<>0 and i=limit then
+            break;
+        endif;
+        arr.add(node);
+        node=res.iterateNext();
+    enddo;
+    for each node in arr do
+        node.parentNode.removeChild(node);
+    enddo;
+    save(doc);
+endfunction
+
+function _getvalue(node)
+    valtype=type(node.getAttribute("type"));
+    child=node.firstChild;
+    while child<>undefined do
+        if typeof(child)=type("DOMCDATASection") then
+            value=child.data;
+            break;
+        endif;
+        child=child.nextSibling;
+    enddo;
+    return ?(check.is_xmlstring_valid_type(valtype),
+             xmlvalue(valtype,value),
+             xmlvalue(type("valuestorage"),value).get());
+endfunction
+
+function _setvalue(node,value)
+    child=node.firstChild;
+    data=?(check.is_xmlstring_valid_value(value),
+           value,
+           new valuestorage(value));
+    while child<>undefined do
+        if typeof(child)=type("DOMCDATASection") then
+            child.data=xmlstring(data);
+            node.setAttribute("type",convert.to_string(typeof(value)));
+            return True;
+        endif;
+        child=child.nextSibling;
+    enddo;
+    node.appendChild(node.ownerDocument.createCDATASection(xmlstring(data)));
+    node.setAttribute("type",convert.to_string(typeof(value)));
+endfunction
+
+function _query(doc,key)
+    try
+        return doc.evaluateXPathExpression(key,doc,doc.createNSResolver());
+    except
+        raise EnvironKeyError(
+            "Error occured due evaluating XPath expression. Invalid key given?"
+            +chars.cr+errorinfo().description,
+            new Structure("key",key));
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function load() export
+    res=cache.get("EnvironInstance");
+    if res<>undefined then
+        if typeof(res)=type("DOMDocument") then
+            return res;
+        else
+            raise exception.TypeError(
+                "Invalid environ instance loaded",
+                new Structure("EnvironInstance",res));
+        endif;
+    endif;
+    return init();
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function save(doc) export
+    if not cache.set("EnvironInstance",doc) then
+        //xmlstr=xmllib.saveXML(doc);
+        //SessionParameters.environ=new valuestorage(xmlstr);
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function get(val key,limit=0,offset=0) export
+    _preq(key,undefined,undefined,limit,offset);
+    return _get(key,limit,offset);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put(val key,value=undefined,attrs=undefined) export
+    _preq(key,value,attrs);
+    return _put(key,value,attrs)
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function pop(val key) export
+    res=get(key);
+    del(key);
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function set(val key,value=undefined,attrs=undefined,limit=0,offset=0)
+//  Создает/обновляет узлы по заданному ключу.
+//
+//    Параметры:
+//         key <string> -- ключ узла
+//       limit <number> -- ограничение на количество
+//      offset <number> -- отступ от начальной позиции выборки
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Исключения:
+//            TypeError -- неправильный тип key
+//      EnvironKeyError -- обращение к корневому узлу документа или
+//                         неверный ключ выборки.
+//
+//    Описание:
+//      Если узел не был найден по указанному ключу, то он будет создан, как
+//      при методе `put`. Иначе же, все узлы, удовлетворяющие ключу будут
+//      обновлены в соответствии с указанным `value` и `attrs`. 
+function set(val key,value=undefined,attrs=undefined,limit=0,offset=0) export
+    _preq(key,value,attrs,limit,offset);
+    return _set(key,value,attrs,limit,offset);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function del(val key,limit=0,offset=0)
+//  Удаляет узлы по заданному ключу
+//
+//    Параметры:
+//         key <string> -- ключ узла
+//       limit <number> -- ограничение на количество
+//      offset <number> -- отступ от начальной позиции выборки
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Исключения:
+//            TypeError -- неправильный тип key
+//      EnvironKeyError -- обращение к корневому узлу документа
+//
+//    Описание:
+//      Удаляет все узлы, соответствующие указанному ключу. 
+//      Выборку на удаление можно ограничить через limit и offset, как
+//      в sql запросах.
+function del(val key,limit=0,offset=0) export
+    _preq(key,undefined,undefined,limit,offset);
+    return _del(key,limit,offset);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function has(val key)
+//  Проверяет наличие ключа в документе.
+//
+//    Параметры:
+//      key <string> -- ключ узла
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Исключения:
+//            TypeError -- неправильный тип key
+//      EnvironKeyError -- обращение к корневому узлу документа
+//
+//    Описание:
+//      Необходим для проверки существования узлов документа, т.к.
+//      метод `get` не гарантирует этого.
+function has(val key) export
+    _preq(key);
+    doc=load();
+    return _query(doc,key).iterateNext()<>undefined;
+endfunction

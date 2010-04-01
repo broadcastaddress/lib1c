@@ -1,0 +1,148 @@
+﻿//function abs(n)
+//    Возвращает модуль числа n
+//
+//    Параметры:
+//        n -- число, <number>
+//
+//    Возвращает:
+//        <number>
+function abs(n) export
+    assert.is_number(n);
+    return ?(n>0,n,-n);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function and_(val a,val b)
+//    Реализует операцию побитового И для значений a и b.
+//
+//    Параметры:
+//        a,b -- число, представленное в десятичной системе как <number>,
+//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//                или же бинарный массив как <array>,<fixedarray>
+//
+//    Возвращает:
+//        <number>
+function and_(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an and bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0] and b[0]);
+    return convert.to_dec(res);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function or_(val a,val b)
+//    Реализует операцию побитового ИЛИ для значений a и b.
+//
+//    Параметры:
+//        a,b -- число, представленное в десятичной системе как <number>,
+//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//                или же бинарный массив как <array>,<fixedarray>
+//
+//    Возвращает:
+//        <number>
+function or_(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an or bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0] or b[0]);
+    return convert.to_dec(res);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function xor(val a,val b)
+//    Реализует побитовую операцию исключающего ИЛИ для значений a и b.
+//
+//    Параметры:
+//        a,b -- число, представленное в десятичной системе как <number>,
+//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//                или же бинарный массив как <array>,<fixedarray>
+//
+//    Возвращает:
+//        <number>
+function xor(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an<>bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0]<>b[0]);
+    return convert.to_dec(res);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function not_(value)
+//    Реализует операцию побитового НЕ для значения value
+//
+//    Параметры:
+//        value -- число, представленное в десятичной системе как <number>,
+//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//                или же бинарный массив как <array>,<fixedarray>
+//
+//    Возвращает:
+//        <number>
+function not_(value) export
+    return convert.to_dec(inv(convert.to_binarray(value)));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function lshift(value,shift) export
+    if check.is_number(value) then
+        return value*pow(2,shift);
+    endif;
+    binarr=convert.to_binarray(value);
+    for i=1 to shift do
+        binarr.insert(0,binarr[0]);
+    enddo;
+    return convert.to_dec(binarr);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function rshift(value,shift) export
+    if check.is_number(value) then
+        return int(value/pow(2,shift));
+    endif;
+    binarr=convert.to_binarray(value);
+    for i=1 to shift do
+        binarr.delete(1);
+    enddo;
+    return convert.to_dec(binarr);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function inv(value) export
+    l=value.ubound();
+    for i=0 to l do
+        value.set(i,not value[i]); // why set?
+    enddo;
+    return value;
+endfunction

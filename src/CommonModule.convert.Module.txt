@@ -1,0 +1,741 @@
+﻿//function to_array(value)
+//  Конвертирует value в массив.
+//
+//    Параметры:
+//      value <any> -- значение, которое нужно конвертировать
+//
+//    Возвращает:
+//      <array>
+//
+//    Исключения:
+//      TypeError -- при невозможности конвертации
+//
+//    Описание:
+//      Правила конвертации:
+//               null -- null
+//          undefined -- новый пустой массив
+//             string -- массив символов строки
+//              array -- без изменений
+//         fixedarray -- раскрывает в array
+//     structure, map -- возвращает массив массивов (key,value)
+function to_array(value) export
+    tval=typeof(value);
+    if value=null then
+        return null;
+    elsif value=undefined then
+        return new Array();
+    elsif tval=type("string") then
+        res=new Array();
+        l=strlen(value);
+        for i=1 to l do
+            res.add(mid(value,i,1));
+        enddo;
+        return res;
+    elsif tval=type("array") then
+        return value;
+    elsif tval=type("fixedarray") then
+        res=new Array();
+        for each i in value do
+            res.add(i);
+        enddo;
+        return res;
+    elsif tval=type("structure") or tval=type("map") then
+        res=new Array();
+        for each item in value do
+            sub=new Array();
+            sub.add(item.key);
+            sub.add(item.value);
+            res.add(sub);
+        enddo;
+        return res;
+    else
+        raise exception.TypeError(
+            "Unable to convert value to array",
+            new Structure("type,value",typeof(value),value)
+        );
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_boolean(value)
+//  Конвертирует value в значение типа <boolean>
+//  
+//    Параметры:
+//         value <any> -- значение, которое нужно конвертировать
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Описание:
+//      Правила конвертации:
+//                   boolean -- boolean
+//          metadata_objects -- если есть ссылка и она пустая, то false,
+//                              во всех прочих случаях true
+//      Для всех прочих возвращается результат функции ValueIsFilled()
+function to_boolean(value) export
+    tval=typeof(value);
+    if tval=type("boolean") then
+        return value;
+    elsif metadata.findbytype(tval)<>undefined then
+        s=new structure("ref",null);
+        FillPropertyValues(s,value);
+        return ?(s.ref=null,True,not s.ref.ref.isempty());
+    else
+        return ValueIsFilled(value);
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_number(value,base=10)
+//  Конвертирует value в значение типа <number>
+//  
+//    Параметры:
+//         value <any> -- значение, которое нужно конвертировать
+//
+//    Возвращает:
+//      <number>
+//
+//    Исключения:
+//      TypeError -- при невозможности конвертации
+//
+//    Описание:
+//      Правила конвертации:
+//               null -- null
+//          undefined -- 0;
+//            boolean -- True=1,False=0
+//             number -- без изменений
+//             string -- перевод в число из системы base
+function to_number(value,base=10) export
+    tval=typeof(value);
+    if value=null then
+        return null;
+    elsif value=undefined then
+        return 0;
+    elsif tval=type("boolean") then
+        return ?(value,1,0);
+    elsif tval=type("number") then
+        return value;
+    elsif tval=type("string") then
+        if base=10 then
+            try
+                return number(value);
+            except
+                raise exception.ValueError(
+                    "Unable to convert value to number",
+                    new Structure("type,value",typeof(value),value)
+                );
+            endtry;
+        else
+            return to_dec(value);
+        endif;
+    else
+        raise exception.TypeError(
+            "Unable to convert value to number",
+            new Structure("type,value",typeof(value),value)
+        );
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_string(value,in_quotes=False)
+//
+// Converts any value to string type.
+//
+// It works doesnt like analog of string() function, but
+// following this rules:
+// - null:
+//            return Null
+// - undefined:
+//            return ""
+// - boolean:
+//            return True or False as string
+// - number:
+//            return string representation of number without any group 
+//            delimeters
+// - string:
+//            value returns without changes, except flag in_quotes is True.
+//            In this case value surrounds by quotes ("value").
+// - date:
+//            return value as if it was passed to xmlstring()
+// - array and fixedarray:
+//            return JSON like array representation (val1,val2,...)
+// - structure and map:
+//            return JSON like object representation {"key":val1,...}
+// - metadata objects:
+//            return string in following format:
+//            <metadata_class>: <object_representation> at <object_reference>
+//            for example:
+//            Catalogs.Users: John Smith at {4BC1AD0F-BB08-11DE-8D46-001CBF5FCF7D}
+// - references:
+//            return reference guid
+function to_string(value,in_quotes=False) export
+    tval=typeof(value);
+    if value=null then
+        return "null";
+    elsif value=undefined then
+        return "";
+    elsif tval=type("boolean") then
+        return ?(value,"True","False");
+    elsif tval=type("number") then
+        return strreplace(string(format(value,"NZ=0;NDS=.;NGS=")),chars.nbsp,"");
+    elsif tval=type("string") then
+        return ?(in_quotes,""""+value+"""",value);
+    elsif tval=type("date") then
+        return xmlstring(value);
+    elsif tval=type("array") or tval=type("fixedarray") then
+        str="";
+        len=value.ubound();
+        str=to_string(value[0],True);
+        for i=1 to len do
+            str=str+","+to_string(value[i],True);
+        enddo;
+        return "("+str+")";
+    elsif tval=type("structure") or tval=type("map") then
+        str="";
+        for each item in value do
+            str=str+to_string(item.key,True)+":"+to_string(item.value,True)+",";
+        enddo;
+        return "{"+str+"}";
+    elsif tval=type("type") then
+        str=string(value);
+        str=strreplace(str," ","");
+        str=strreplace(str,":",".");
+        return str;
+    elsif check.is_object(value) then
+        //    
+    elsif check.is_ref(value) then 
+        return xmlstring(value);
+    else
+        return string(value);
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_structure(object)
+//  Конвертирует объект метаданных в структуру
+//
+//  Параметры:
+//      object -- объект метаданных
+//
+//    Исключения:
+//      TypeError -- если object не объект метаданных
+//
+function to_structure(object) export
+    metainfo=metadata.findbytype(typeof(object));
+    if metainfo=undefined then
+        raise exception.TypeError("metadata object expected");
+    endif;
+    struct=new Structure();
+    if check.is_constant(object) then
+        struct.insert("value",object.get());
+        return struct;
+    elsif check.is_enum(object) then
+        struct.insert("value",string(object));
+        return struct;
+    else
+        attrs=new Array();
+        if check.is_inforegistry(object) then
+            templates=undefined;
+            attrs.add("active");
+            attrs.add("period");
+            attrs.add("recorder");
+            //
+            for each attr in metainfo.attributes do
+                attrs.add(attr.name);
+            enddo;
+            for each attr in metainfo.resources do
+                attrs.add(attr.name);
+            enddo;
+            for each attr in metainfo.dimensions do
+                attrs.add(attr.name);
+            enddo;
+        elsif check.is_accumulregistry(object) then
+            templates=undefined;
+            attrs.add("active");
+            attrs.add("period");
+            //attrs.add("pointintime");
+            struct.insert("pointintime",
+                          new Structure("date,ref",
+                                        object["pointintime"].date,
+                                        object["pointintime"].ref)
+            );
+            attrs.add("recorder");
+            //attrs.add("recordtype");
+            //
+            for each attr in metainfo.attributes do
+                attrs.add(attr.name);
+            enddo;
+            for each attr in metainfo.resources do
+                attrs.add(attr.name);
+            enddo;
+            for each attr in metainfo.dimensions do
+                attrs.add(attr.name);
+            enddo;
+        else
+            templates=new Structure();
+            attrs.add("ref");
+            attrs.add("deletionmark");
+            if check.is_document(object) then
+                attrs.add("number");
+                attrs.add("posted");
+                attrs.add("date");
+            elsif check.is_catalog(object) 
+                or check.is_charts_of_characteristic_types(object) then
+                if object.predefined then
+                    attrs.add("name");
+                endif;
+                attrs.add("code");
+                attrs.add("description");
+                attrs.add("predefined");
+                attrs.add("parent");
+                attrs.add("isfolder");
+            endif;
+            if check.is_catalog(object) then
+                attrs.add("owner");
+            endif;
+            if check.is_charts_of_characteristic_types(object) then
+                attrs.add("valuetype");
+            endif;
+            for each attr in metainfo.attributes do
+                attrs.add(attr.name);
+            enddo;
+            for each ts in metainfo.tabularsections do
+                templates.insert(ts.name,new Structure());
+                for each attr in ts.attributes do
+                    templates[ts.name].insert(attr.name,null);
+                enddo;
+            enddo;
+        endif;
+    endif;
+    for each attr in attrs do
+        struct.insert(attr,null);
+    enddo;
+    FillPropertyValues(struct,object);
+    if templates<>undefined then
+        for each ts in templates do
+            struct.insert(ts.key,new Array);
+            for each row in object[ts.key] do
+                temp=ts.value;
+                FillPropertyValues(temp,row);
+                struct[ts.key].add(temp);
+            enddo;
+        enddo;
+    endif;
+    return struct;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_bin(value)
+//  Возвращает представление числа value в бинарном коде
+//
+//    Параметры:
+//        value -- число, представленное в десятичной системе как <number>,
+//                 8-ричной или 16-ричной как <string> или же бинарный массив
+//                 как <array>,<fixedarray>
+//
+//    Возвращает:
+//        <string>
+//
+//    Исключения:
+//      ValueError -- при неверном записи числа
+//
+//    Описание:
+//      Преобразует переданное число или его представление в 8-ричной,
+//      16-ричной или в качестве бинарного массива в строку формата 
+//      двоичного кода.
+//      Строка имеет строгий формат: ^-?0b[01]+$
+//      Значение двоичного кода для отрицательных и для положительных одинаково
+//      для удобства чтения и записи, т.е:
+//        10 =  0b1010
+//       -10 = -0b1010, хотя на самом деле -10 записывается как -0b0110
+//
+//      Все бинарные операции производятся через бинарные массивы, которые
+//      учитывают корректность записи отрицательных чисел.
+function to_bin(value) export
+    if check.is_number(value) then
+        return _dec2bin(value);
+    elsif check.is_hex(value) then
+        return _hex2bin(value);
+    elsif check.is_bin(value) then
+        return value;
+    elsif check.is_binarr(value) then
+        return _binarr2bin(value);
+    else
+        raise exception.ValueError();
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_binarray(value)
+//  Возвращает представление числа value в бинарном массиве
+//
+//    Параметры:
+//        value -- число, представленное в десятичной системе как <number>,
+//                 2-ичной, 8-ричной или 16-ричной как <string>
+//
+//    Возвращает:
+//        <array>
+//
+//    Исключения:
+//      ValueError -- при неверном записи числа
+//
+//    Описание:
+//      Возвращает представление числа value в бинарном массиве.
+//      Данный вид представление числа в двоичном коде создан с целью
+//      оптимизации побитовых операций.
+//      Первый элемент массива указывает на знак числа:
+//           True (1) для отрицательного
+//          False (0) для положительного
+//      Последующие элементы массива представляют число записанное 
+//      в двоичной системе в прямом коде, где True обозначает 1 и False - 0.
+//      Следует помнить, что представление одного и того же числа 
+//      с разным знаком различно:
+//      -10=math.abs(-10)-1=9=01001=10110=>array(True,False,True,True,False)
+//      10=01010=>array(False,True,False,True,False)
+//      Дробные числа пока не поддерживаются.
+//
+//      Все битовые операции (AND, OR, XOR, NOT) производятся через бинарные
+//      массивы, которые учитывают корректность записи отрицательных чисел.
+function to_binarray(value) export
+    if check.is_number(value) then
+        return _dec2binarr(value);
+    elsif check.is_binarr(value) then
+        return value;
+    elsif check.is_hex(value) then
+        return _hex2binarr(value);
+    elsif check.is_bin(value) then
+        return _bin2binarr(value);
+    elsif check.is_oct(value) then
+        return _oct2binarr(value);
+    else
+        raise exception.ValueError();
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_oct(value)
+//  Возвращает представление числа value в восьмеричной системе
+//
+//    Параметры:
+//        value -- число, представленное в 10-ичной системе как <number>,
+//                 2-ичной, 16-ричной системах как <string> 
+//                 или же бинарный массив как <array>, <fixedarray>
+//
+//    Возвращает:
+//        <string>
+//
+//    Исключения:
+//      ValueError -- при неверном записи числа
+function to_oct(value) export
+    if check.is_number(value) then
+        return _dec2oct(value);
+    elsif check.is_binarr(value) then
+        return _binarr2oct(value);
+    elsif check.is_hex(value) then
+        return _hex2oct(value);
+    elsif check.is_bin(value) then
+        return _bin2oct(value);
+    elsif check.is_oct(value) then
+        return value;
+    else
+        raise exception.ValueError();
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_dec(value)
+//    Возвращает представление числа value в десятичной системе
+//
+//    Параметры:
+//        value -- число, представленное в 2-ичной, 8-ричной или 16-ричной 
+//                 системах как <string> или же бинарный массив как <array>,
+//                 <fixedarray>
+//
+//    Возвращает:
+//        <number>
+//
+//    Описание:
+//    Преобразует переданное число из 2-ичной, 8-ричной, 16-ричной системах или
+//    из бинарного массива в число десятичной системы исчисления.
+function to_dec(value) export
+    if check.is_number(value) then
+        return value;
+    elsif check.is_binarr(value) then
+        return _binarr2dec(value);
+    elsif check.is_hex(value) then
+        return _hex2dec(value);
+    elsif check.is_bin(value) then
+        return _bin2dec(value);
+    elsif check.is_oct(value) then
+        //return _oct2dec(value);
+    else
+        raise exception.ValueError();
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function to_dec(value)
+//  Возвращает представление числа value в десятичной системе
+//
+//    Параметры:
+//        value -- число, представленное в 2-ичной, 8-ричной или 16-ричной 
+//                 системах как <string> или же бинарный массив как <array>,
+//                 <fixedarray>
+//
+//    Возвращает:
+//        <string>
+//
+//    Описание:
+//      Преобразует переданное число из 2-ичной, 8-ричной, 16-ричной системах или
+//      из бинарного массива в число десятичной системы исчисления.
+function to_hex(value,prefix="0x") export
+    if check.is_number(value) then
+        return _dec2hex(value,prefix);
+    elsif check.is_binarr(value) then
+        return _binarr2hex(value,prefix);
+    elsif check.is_hex(value) then
+        return value;
+    elsif check.is_bin(value) then
+        return _bin2hex(value,prefix);
+    elsif check.is_oct(value) then
+        return _oct2hex(value,prefix);
+    else
+        raise exception.ValueError();
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Вспомогательные методы
+/////////////////////////////////////////////////////////////////////////////
+
+function _binarr2bin(val value)
+    res="";
+    sign=?(value[0],"-","");
+    if value[0] then
+        l=value.ubound();
+        for i=0 to l do
+            value.set(i,not value[i]); // why set?
+        enddo;
+        if l=0 then
+            return re;
+        endif;
+        while True do
+            res[l]=not res[l];
+            if res[l] then
+                break;
+            endif;
+            l=l-1;
+        enddo;
+    endif;
+    l=value.ubound();
+    for i=value.find(not value[0]) to l do
+        res=res+string(int(value[i]));
+    enddo;
+    return sign+"0b"+res;
+endfunction
+
+function _oct2bin(value)
+    res="";
+    //16001
+    is_neg=mid(value,1,1)="-";
+    sign=?(is_neg,"-","");
+    octstr="01234567";
+    binstr="000001010011100101110111";
+    l=strlen(value);
+    for i=?(is_neg,4,3) to l do
+        res=res+mid(binstr,3*find(octstr,mid(value,i,1))-2,3);
+    enddo;
+    return sign+"0b"+mid(res,find(res,"1"));
+endfunction
+
+function _dec2bin(value)
+    res=0;
+    base=0;
+    sign=?(value<0,"-","");
+    value=?(value>0,value,value*-1);
+    while value>0 do
+        res=res+?(value%2=1,pow(10,base),0);
+        base=base+1;
+        value=int(value/2);
+    enddo;
+    res=strreplace(string(format(res,"NZ=0;NDS=.")),chars.nbsp,"");
+    return sign+"0b"+res;
+endfunction
+
+function _hex2bin(val value)
+    res="";
+    value=upper(value);
+    is_neg=mid(value,1,1)="-";
+    sign=?(is_neg,"-","");
+    hexstr="0123456789ABCDEF";
+    binstr="0000000100100011010001010110011110001001101010111100110111101111";
+    l=strlen(value);
+    for i=?(is_neg,4,3) to l do
+        res=res+mid(binstr,4*find(hexstr,mid(value,i,1))-3,4);
+    enddo;
+    return sign+"0b"+mid(res,find(res,"1"));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _bin2binarr(value)
+    res=new Array();
+    l=strlen(value);
+    is_neg=mid(value,1,1)="-";
+    res.add(is_neg);
+    start=find(value,"1");
+    for i=?(start=0,l+1,start) to l do
+        v=boolean(int(mid(value,i,1)));
+        res.add(?(is_neg,not v,v));
+    enddo;
+    if is_neg then
+        l=res.ubound();
+        if l=0 then
+            return res;
+        endif;
+        while True do
+            res[l]=not res[l];
+            if res[l] then
+                break;
+            endif;
+            l=l-1;
+        enddo;
+    endif;
+    return res;
+endfunction
+
+function _dec2binarr(value)
+    return _bin2binarr(_dec2bin(value));
+endfunction
+
+function _oct2binarr(value)
+    return _bin2binarr(_oct2bin(value));
+endfunction
+
+function _hex2binarr(value)
+    return _bin2binarr(_hex2bin(value));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _bin2dec(value)
+    res=0;
+    sign=?(mid(value,1,1)="-",-1,1);
+    l=strlen(value);
+    for i=?(sign=-1,4,3) to l do
+        v=mid(value,i,1);
+        if v<>"0" then
+            res=res+pow(2,l-i);
+        endif;
+    enddo;
+    return sign*res;
+endfunction
+
+function _binarr2dec(val value)
+    res=0;
+    l=value.ubound();
+    sign=?(value[0],-1,1);
+    i=l;
+    while i<>0 do
+        if value[0]<>value[i] then
+            res=res+pow(2,l-i);
+        endif;
+        i=i-1;
+    enddo;
+    return sign*res-?(value[0],1,0);
+endfunction
+
+function _hex2dec(val value,prefix="0x")
+    res=0;
+    value=upper(value);
+    hexstr="0123456789ABCDEF";
+    l=strlen(value);
+    s=strlen(prefix)+1;
+    for i=s to l do
+        if mid(value,i,1)="0" then
+            s=s+1;
+        else
+            break;
+        endif;
+    enddo;
+    for i=s to l do
+        res=res+(find(hexstr,mid(value,i,1))-1)*pow(16,l-i);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// TODO
+
+function _bin2hex(val value,prefix="0x")
+    res="";
+    is_neg=mid(value,1,1)="-";
+    sign=?(is_neg,"-","");
+    hexstr="0123456789ABCDEF";
+    binstr="|0000|0001|0010|0011|0100|0101|0110|0111|1000|1001|1010|1011|1100|1101|1110|1111";
+    value=mid(value,?(is_neg,4,3));
+    l=strlen(value);
+    i=l%4;
+    if i<>0 then
+        for j=i to 3 do
+            value="0"+value;
+        enddo;
+        l=strlen(value);
+    endif;
+    l=l/4-1;
+    for i=0 to l do
+        p=find(binstr,"|"+mid(value,1+i*4,4));
+        p=p-p/5;
+        res=res+mid(hexstr,(p/4)+1,1);
+    enddo;
+    return sign+prefix+res;
+endfunction
+
+function _binarr2hex(val value,prefix="0x")
+    return _bin2hex(_binarr2bin(value),prefix);
+endfunction
+
+function _oct2hex(val value,prefix="0x")
+    raise exception.NotImplementedError();
+endfunction
+
+function _dec2hex(val value,prefix="0x")
+    res="";
+    sign=?(value<0,"-","");
+    hexstr="0123456789ABCDEF";
+    value=?(value>0,value,-value);
+    while value>0 do
+        res=mid(hexstr,1+(value-16*int(value/16)),1)+res;
+        value=int(value/16);
+    enddo;
+    res=strreplace(string(format(res,"NZ=0;NGS=''")),chars.nbsp,"");
+    return sign+prefix+res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// TODO
+
+function _bin2oct(val value)
+    return _dec2oct(_bin2dec(value));
+endfunction
+
+function _binarr2oct(val value)
+    return _dec2oct(_binarr2dec(value));
+endfunction
+
+function _hex2oct(val value)
+    return _dec2oct(_hex2dec(value));
+endfunction
+
+function _dec2oct(val value)
+    raise exception.NotImplementedError();
+endfunction

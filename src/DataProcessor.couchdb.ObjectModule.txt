@@ -1,0 +1,41 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+// Some functionality was changed.
+/////////////////////////////////////////////////////////////////////////////
+
+// версия обработки
+var VERSION export;
+
+function Document(schema=undefined) export
+    return thisobject.getForm("Document").init(schema);
+endfunction
+
+function Database(url,name) export
+    return thisobject.getForm("Database").init(url,name);
+endfunction
+
+function Session() export
+    return thisobject.getForm("Session").init();
+endfunction
+
+function Server(url="http://localhost:5984/",full_commit=True) export
+    return thisobject.getForm("Server").init(url,full_commit);
+endfunction
+
+function Resource(url,session=undefined,headers=undefined) export
+    return thisobject.getForm("Resource").init(url,session,headers);
+endfunction
+
+function PermView(url,name,wrapper=undefined,session=undefined) export
+    return thisobject.getForm("PermView").init(url,name,wrapper,session);
+endfunction
+
+function TempView() export
+    return thisobject.getForm("TempView").init();
+endfunction
+
+VERSION="0.0.1.0";

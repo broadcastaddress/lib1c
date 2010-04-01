@@ -1,0 +1,141 @@
+﻿function sync_all(url,dbname="couch1c") export
+    couchdb=DataProcessors.couchdb.create();
+    server=couchdb.Server(url);
+    if not server.has(dbname) then
+        server.create(dbname);
+    endif;
+    db=server.get(dbname);
+    
+    stack=new array();
+    // constants
+    for each metainfo in metadata.constants do
+        doc=couchdb.Document(metainfo);
+        doc.load(Constants[metainfo.name]);
+        doc.set(".author",UserFullName());
+        doc.set(".message","sync update");
+        stack.add(doc.dispatch());
+    enddo;
+    
+    // enums
+    for each metainfo in metadata.enums do
+        doc=couchdb.Document(metainfo);
+        for each value in metainfo.enumvalues do
+            doc.load(Enums[metainfo.name][value.name]);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+        enddo;
+    enddo;
+    db.update(stack);
+    
+    // catalogs
+    i=0;
+    size=100;
+    for each metainfo in metadata.catalogs do
+        doc=couchdb.Document(metainfo);
+        row=Catalogs[metainfo.name].select();
+        while row.next() do
+            doc.load(row);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+            if i%size=0 then
+                Controls.object.Value=doc[".fullname"];
+                Controls.position.Value=string(i);
+                db.update(stack);
+                stack.clear();
+            endif;
+            i=i+1;
+            //doc.store(db);
+        enddo;
+    enddo;
+    
+    size=25;
+    for each metainfo in metadata.documents do
+        doc=couchdb.Document(metainfo);
+        row=Catalogs[metainfo.name].select();
+        while row.next() do
+            doc.load(row);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+            if i%size=0 then
+                Controls.object.Value=doc[".fullname"];
+                Controls.position.Value=string(i);
+                db.update(stack);
+                stack.clear();
+            endif;
+            i=i+1;
+            //doc.store(db);
+        enddo;
+    enddo;
+    db.update(stack);
+    stack.clear();
+    // CCT
+    i=0;
+    size=25;
+    for each metainfo in metadata.chartsOfCharacteristicTypes do
+        doc=couchdb.Document(metainfo);
+        row=Catalogs[metainfo.name].select();
+        while row.next() do
+            doc.load(row);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+            if i%size=0 then
+                Controls.object.Value=doc[".fullname"];
+                Controls.position.Value=string(i);
+                db.update(stack);
+                stack.clear();
+            endif;
+            i=i+1;
+        enddo;
+    enddo;
+    
+    // information registries
+    size=50;
+    for each metainfo in metadata.informationRegisters do
+        doc=couchdb.Document(metainfo);
+        row=Catalogs[metainfo.name].select();
+        while row.next() do
+            doc.load(row);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+            if i%size=0 then
+                Controls.object.Value=doc[".fullname"];
+                Controls.position.Value=string(i);
+                db.update(stack);
+                stack.clear();
+            endif;
+            i=i+1;
+        enddo;
+    enddo;
+    
+    // accumulation registries
+    size=50;
+    for each metainfo in metadata.accumulationRegisters do
+        doc=couchdb.Document(metainfo);
+        row=Catalogs[metainfo.name].select();
+        while row.next() do
+            doc.load(row);
+            doc.set(".author",UserFullName());
+            doc.set(".message","sync update");
+            stack.add(doc.dispatch());
+            if i%size=0 then
+                Controls.object.Value=doc[".fullname"];
+                Controls.position.Value=string(i);
+                db.update(stack);
+                stack.clear();
+            endif;
+            i=i+1;
+            //doc.store(db);
+        enddo;
+    enddo;
+    db.update(stack);
+    stack.clear();
+endfunction
+
+Procedure Button1Click(Control)
+    sync_all(controls.server.value,controls.database.value);
+EndProcedure

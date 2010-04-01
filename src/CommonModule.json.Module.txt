@@ -1,0 +1,387 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+//  Модуль для конвертации объектов 1С в JSON представление.
+//
+//  Здесь нам требуется максимум скорости, поскольку модуль нужен для
+//  синхронизации 1С с couchdb. Поэтому стараемся не вызывать лишний раз
+//  внешние функции, если можем без особых потерь реализовать схожий алгоритм
+/////////////////////////////////////////////////////////////////////////////
+
+function pack(expr)
+    tval=typeof(expr);
+    // порядок if'ов оптимизирован под частые случаи
+    if tval=type("string") then
+        // забавная фенька...
+        return """"+strreplace(
+                        strreplace(
+                            strreplace(
+                                strreplace(
+                                    strreplace(
+                                        strreplace(expr,
+                                            "\","\\"),
+                                        """","\"""),
+                                    chars.cr,"\n"),
+                                chars.lf,"\r"),
+                            chars.tab,"\t"),
+                        chars.ff,"\f")
+                   +"""";
+    elsif tval=type("number") then
+        return strreplace(string(format(expr,"NZ=0;NDS=.;NGS=''")),chars.nbsp,"");
+    elsif tval=type("date") then
+        return """"+xmlstring(expr)+"""";
+    elsif tval=type("structure") or tval=type("map") then
+        str="";
+        for each item in expr do
+            str=str+","+pack(item.key)+":"+pack(item.value);
+        enddo;
+        return ?(str="","{}","{"+mid(str,2)+"}");
+    elsif tval=type("array") or tval=type("fixedarray") then
+        str="";
+        len=expr.ubound();
+        if len>=0 then
+            str=pack(expr[0]);
+            for i=1 to len do
+                str=str+","+pack(expr[i]);
+            enddo;
+        endif;
+        return "["+str+"]";
+    elsif expr=null then
+        return "null";
+    elsif expr=undefined then
+        return "null";
+    elsif tval=type("boolean") then
+        return ?(expr,"true","false");
+    elsif tval=type("type") then
+        str=string(expr);
+        str=strreplace(str," ","");
+        str=strreplace(str,":",".");
+        return pack(str);
+    elsif check.is_ref(expr) 
+            or tval=type("valuestorage") 
+            or tval=type("binarydata") then
+        return """"+xmlstring(expr)+"""";
+    elsif check.is_enum(expr) then
+        return ?(ValueIsFilled(expr),
+                    pack(metadata.findbytype(tval).fullname()+"."+xmlstring(expr)),
+                    pack("null"));
+    elsif metadata.findbytype(tval)<>undefined then
+        pack(convert.to_structure(expr));
+    else
+        raise exception.ValueError(
+                "Unable to convert expr to json. No rules how to do that.",
+                new Structure("expr",expr));
+    endif;
+endfunction
+
+//function encode(expr)
+//  Преобразует значение 1С в строку формата JSON
+//
+//    Параметры:
+//      expr <any> -- любое значение, объект 1С
+//
+//    Возвращает:
+//      <string>
+//
+//    Исключения:
+//       ValueError -- нет правил конвертации. Возможно для системных типов.
+//
+//    Описание:
+//      За подробностями по стандарту JSON обращаться к офф источникам:
+//         http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-262.pdf
+//      Правила конвертации:
+//                    null --> null
+//               undefined --> null
+//                 boolean --> bool
+//                  number --> number
+//                  string --> string
+//                    date --> строка даты стандарта RFC 3339
+//                   array --> array
+//                     ref --> строка с UUID
+//               structure --> object
+//                     map --> object
+//                    type --> string
+//         metadata-object --> object
+//            valuestorage --> base64-encoded string
+//              binarydata --> base64-encoded string
+function encode(expr) export
+    if metadata.findbytype(typeof(expr))<>undefined then
+        return pack(convert.to_structure(expr));
+    else
+        return pack(expr);
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// port of python json module..in some kind
+
+// TODO: здесь можно еще выиграть в скорости на примерно 20-35%
+
+//function decode(jsonstr)
+//  Преобразует строку формата JSON в объект 1С
+//
+//    Параметры:
+//      jsonstr <string> -- строка формата JSON
+//
+//    Исключения:
+//       TypeError -- неверный тип переданного значения
+//      ValueError -- JSON-строка сформированна не по стандарту (strict)
+//
+//    Описание:
+//      За подробностями по стандарту JSON обращаться к офф источникам:
+//         http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-262.pdf
+//      Правила конвертации:
+//              null --> null
+//               NaN --> undefined
+//          Infinity --> undefined
+//         undefined --> undefined
+//              bool --> boolean
+//         int,float --> number
+//            string --> string
+//             array --> array
+//            object --> structure
+function decode(jsonstr) export
+    if not check.is_string(jsonstr) then
+        raise exception.TypeError();
+    endif;
+    return scanner(jsonstr,1)[0];
+endfunction
+
+function scanner(s,idx=1)
+    c=mid(s,idx,1);
+    if c="{" then
+        return json_object(s,idx+1);
+    elsif c="[" then
+        return json_array(s,idx+1);
+    elsif c="""" then
+        return json_string(s,idx+1);
+    else
+        // may earn some speed from here later
+        lexicon=new Structure("constant,number",
+                              "(-?Infinity|NaN|true|false|null)",
+                              "(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?");
+        for each item in lexicon do
+            p=item.value;
+            m=re.match(s,p,idx);
+            if m<>undefined then
+                idx=m.end;
+                if item.key="number" then
+                    return json_number(m);
+                elsif item.key="constant" then
+                    return json_constant(m);
+                endif;
+            endif;
+        enddo;
+    endif;
+endfunction
+
+function scanstring(s,i)
+    chunks=new Array();
+    begin=i-1;
+    while True do
+        // is there way to handle this better?
+        //chunk=re.match(s,"(.*?)([""\\\x00-\x1f])",i);
+        // yes, we won 13%, but it's still slow
+        chunk="";
+        pos=i;
+        ls=strlen(s);
+        c=mid(s,pos,1);
+        // bottle neck below
+        while pos<=ls and not (c="""" or c="\" or charCode(c)<32) do
+            pos=pos+1;
+            c=mid(s,pos,1);
+        enddo;
+        terminator=?(pos=i,undefined,c);
+        if terminator=undefined then
+            raise exception.ValueError(
+                    errmsg("Unterminated string starting at", s, begin));
+        endif;
+        end=pos+1;
+        content=mid(s,i,pos-i);
+        terminator=terminator;
+        // so let's think how to do this better!
+        if content<>"" then
+            chunks.add(content);
+        endif;
+        if terminator="""" then
+            break
+        elsif terminator<>"\" then
+            msg="Invalid control character "+terminator+" at";
+            raise exception.ValueError(errmsg(msg,s,end));
+        endif;
+        esc=mid(s,end,1);
+        if esc="" then
+            raise exception.ValueError(
+                errmsg("Unterminated string starting at", s, begin));
+        endif;
+        if esc<>"u" then
+            _b=new map();
+            _b.insert("""","""");
+            _b.insert("\","\");
+            _b.insert("/","/");
+            _b.insert("b","\b");
+            _b.insert("f","\f");
+            _b.insert("n","\n");
+            _b.insert("r","\r");
+            _b.insert("t","\t");
+            m=_b.get(esc);
+            if m=undefined then
+                msg = "Invalid \escape: "+esc;
+                raise exception.ValueError(errmsg(msg, s, end));
+            endif;
+            end=end+1;
+        else
+            raise exception.NotImplementedError("not tested yet");
+            //
+            esc=convert.to_dec("0x"+mid(s,end+1,4));
+            next_end=end+5;
+            msg="Invalid \\uXXXX escape";
+            try
+                if strlen(esc)<>4 then
+                    raise "ValueError";
+                endif;
+                uni=esc;
+                if 55296<=esc and esc<=56319 then
+                    msg="Invalid \\uXXXX\\uXXXX surrogate pair";
+                    if not mid(s,end+5,2)="\u" then
+                        raise "ValueError";
+                    endif;
+                    esc2=convert.to_dec("0x"+mid(s,end+7,4));
+                    if strlen(esc2)<>4 then
+                        raise "ValueError";
+                    endif;
+                    uni=65536+math.or_(math.lshift(esc-55296,10),esc2-56320);
+                    next_end=next_end+6;
+                endif;
+                m=char(uni);
+            except
+                raise exception.ValueError(errmsg(msg, s, end));
+            endtry;
+            end = next_end
+        endif;
+        chunks.add(m);
+    enddo;
+    res="";
+    for each c in chunks do
+        res=res+c;
+    enddo;
+    i=end;
+    return pair(res,end);
+endfunction
+
+function json_object(s,end)
+    pairs=new map();
+    end=skip_ws(s,end);
+    nextchar=mid(s,end,1);
+    // Trivial empty object
+    if nextchar="}" then
+        end=end+1;
+        return pair(pairs,end);
+    endif;
+    if nextchar<>"""" then
+        raise exception.ValueError(
+                            errmsg("Expecting property name",s,end));
+    endif;
+    end=end+1;
+    strict=True;
+    while True do
+        res=scanstring(s,end);
+        key_=res[0];
+        end=res[1];
+        end=skip_ws(s,end);
+        c=mid(s,end,1);
+        if c<>":" then
+            raise exception.ValueError(
+                            errmsg("Expecting : delimiter",s,end));
+        endif;
+        end=skip_ws(s,end+1);
+        res=scanner(s,end);
+        if res=undefined then
+            raise exception.ValueError(
+                            errmsg("Expecting object",s,end));
+        endif;
+        value=res[0];
+        end=res[1];
+        pairs.insert(key_,value);
+        end=skip_ws(s,end);
+        nextchar=mid(s,end,1);
+        end=end+1;
+        if nextchar="}" then
+            break;
+        endif;
+        if nextchar<>"," then
+            raise exception.ValueError(
+                            errmsg("Expecting , delimiter",s,end-1));
+        endif;
+        end=skip_ws(s,end);
+        nextchar=mid(s,end,1);
+        end=end+1;
+        if nextchar<>"""" then
+            raise exception.ValueError(
+                            errmsg("Expecting property name",s,end-1));
+        endif;
+    enddo;
+    return pair(pairs,end);
+endfunction
+
+function json_array(s,end)
+    values=new Array();
+    end=skip_ws(s,end);
+    // Look-ahead for trivial empty array
+    nextchar=mid(s,end,1);
+    if nextchar="]" then
+        return pair(values,end+1);
+    endif;
+    while True do
+        res=scanner(s,end);
+        if res=undefined then
+            raise exception.ValueError(errmsg("Expecting object",s,end));
+        endif;
+        value=res[0];
+        end=res[1];
+        values.add(value);
+        end=skip_ws(s,end);
+        nextchar=mid(s,end,1);
+        end=end+1;
+        if nextchar="]" then
+            break;
+        endif;
+        if nextchar<>"," then
+            raise exception.ValueError(
+                            errmsg("Expecting , delimiter",s,end-1));
+        endif;
+        end=skip_ws(s,end);
+    enddo;
+    return pair(values,end);
+endfunction
+
+function json_string(s,end)
+    return scanstring(s,end);
+endfunction
+
+function json_constant(m)
+    c=new Structure("Infinity,NaN,true,false,null",
+                     undefined,undefined,true,false,null);
+    return pair(c[m.group[0]],m.end);
+endfunction
+
+function json_number(m)
+    integer=m.group[1];
+    frac=m.group[2];
+    exp=m.group[3]; // unsupported?
+    res=number(integer+?(frac=undefined,"",frac)+?(exp=undefined,"",""));
+    return pair(res,m.end);
+endfunction
+
+function errmsg(msg,doc,pos,end=undefined)
+    return msg+" "+doc+" (char "+pos+")";
+endfunction
+
+function skip_ws(s,pos)
+    // used instead of regexp for speedup
+    w=chars.cr+chars.lf+chars.vtab+chars.tab+chars.nbsp;
+    c=mid(s,pos,1);
+    while find(w,c)<>0 do
+        pos=pos+1;
+        c=mid(s,pos,1);
+    enddo;
+    return pos;
+endfunction

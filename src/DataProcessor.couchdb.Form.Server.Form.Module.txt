@@ -1,0 +1,203 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of Server class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+var _resource export;
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function init(url="http://localhost:5984/",full_commit=True)
+//  Создает объект Server
+//
+//    Параметры:
+//              url  <string> -- адрес сервера
+//      full_commit <boolean> -- метод принятия данных
+//
+//    Возвращает:
+//      <CouchDB.Server>
+//
+function init(url="http://localhost:5984/",full_commit=True) export
+    _resource=self.Resource(url);
+    if not full_commit then
+        _resource.headers.insert("X-Couch-Full-Commit","false");
+    endif;
+    return thisform;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function has(name)
+//  Проверяет начилие базы на сервере
+//
+//    Параметры:
+//      name <string> -- имя базы
+//
+//    Возвращает:
+//      <boolean>
+//
+function has(name) export
+    try
+        _resource.head(validate_dbname(name));
+        return True;
+    except
+        err=exception.catch(errorInfo());
+        if err.type="ResourceNotFound" then
+            return False;
+        endif;
+        raise;
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function list()
+//  Возвращает список баз на сервере
+//
+//    Возвращает:
+//      <array>
+//
+function list() export
+    return _resource.get_json("_all_dbs").data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function ping()
+//  Проверяет доступность сервера
+//
+//    Возвращает:
+//      <boolean>
+//
+function ping() export
+    try
+        _resource.head();
+        return True;
+    except
+        return False;
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function config()
+//  Возвращает конфигурацию сервера
+//
+//    Возвращает:
+//      <map>
+//
+function config() export
+    return _resource.get_json("_config").data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function version()
+//  Возвращает версию сервера
+//
+//    Возвращает:
+//      <string>
+//
+function version() export
+    return _resource.get_json().data["version"];
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function stats()
+//  Возвращает статистику сервера
+//
+//    Возвращает:
+//      <map>
+//
+function stats() export
+    return _resource.get_json("_stats").data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function tasks()
+//  Возвращает список активных задач
+//
+//    Возвращает:
+//      <array>
+//
+function tasks() export
+    return _resource.get_json("_active_tasks").data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function create(name)
+//  Создает базу на сервере
+//
+//    Возвращает:
+//      <CouchDB.Database>
+//
+function create(name) export
+    _resource.put_json(validate_dbname(name));
+    return get(name);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function get(name)
+//  Возвращает объект базы уже существующей на сервере
+//
+//    Возвращает:
+//      <CouchDB.Database>
+//
+function get(name) export
+    db=self.Database(_resource.copy(name),validate_dbname(name));
+    db.ping(); // actually make a request to the database
+    return db;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function del(name)
+//  Удаляет базу с сервера
+//
+//    Возвращает:
+//      True - как знак успеха операции
+//
+function del(name) export
+    _resource.delete_json(validate_dbname(name));
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function replicate(source,target,options=undefined)
+//  Реплицирует изменения из source базы в target базу
+//
+//    Параметры:
+//      source <string> -- url базы источника
+//      target <string> -- url базы приемника
+//      options   <map> -- дополнительные опции
+//
+//    Возвращает:
+//      <map>
+//
+function replicate(source,target,options=undefined) export
+    if options=undefined then
+        data=new structure("source,target",source,target);
+    elsif check.is_structure_or_map(options) then
+        data=options;
+        data.insert("source",source);
+        data.insert("target",target);
+    endif;
+    return _resource.post_json("_replicate",data).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function validate_dbname(name)
+    if not re.test(name,"^[a-z][a-z0-9_$()+-/]*$") then
+        raise exception.ValueError("Invalid database name");
+    endif;
+    return name;
+endfunction

@@ -1,0 +1,85 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of TemporaryView class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+var _name;
+var _resource;
+var _wrapper;
+var _map_func;
+var _reduce_func;
+var _language;
+
+function init(url,map_func,reduce_func=undefined,language="javascript",
+              wrapper=undefined,session=undefined) export
+    if check.is_string(url) then
+        _resource=self.Resource(url,session);
+    else
+        _resource=url;
+    endif;
+    if not check.is_string(map_func) then
+        raise exception.TypeError(
+            "Map function must be described as string",
+            new Structure("url,map_func,reduce_func,language,wrapper,session",
+                           url,map_func,reduce_func,language,wrapper,session)
+        );
+    endif;
+    _map_func=trimall(map_func);
+    if reduce_func<>undefined then
+        if not check.is_string(reduce_func) then
+            raise exception.TypeError(
+                "Reduce function must be described as string",
+                new Structure("url,map_func,reduce_func,language,wrapper,session",
+                               url,map_func,reduce_func,language,wrapper,session)
+            );
+        endif;
+        _reduce_func=trimall(map_func);
+    endif;
+    if not check.is_string(language) then
+        raise exception.TypeError(
+            "Language must be string type",
+            new Structure("url,map_func,reduce_func,language,wrapper,session",
+                           url,map_func,reduce_func,language,wrapper,session)
+        );
+    endif;
+    _wrapper=wrapper;
+endfunction
+
+function repr() export
+    return "<TempView "+chars.cr
+           +"map:"+_map_func
+           +chars.cr+chars.cr
+           +"reduce"+_reduce_func+">";
+endfunction
+
+function exec(val options) export
+    body=new Structure("map,language",_map_func,_language);
+    if _reduce_func<>undefined then
+        body.insert("reduce",_reduce_func);
+    endif;
+    if check.hasattr(options,"keys") then
+        body.insert("keys",options["keys"]);
+        options.delete("keys");
+    endif;
+    content=json.encode(body);
+    headers=new map();
+    headers.insert("Content-Type","application/json");
+    res=_resource.post_json(undefined,content,headers,options);
+    return res.data;
+endfunction
+
+function encode_options(options)
+    retval=new map();
+    for each item in options do
+        if (item.key="key" or item.key="startkey" or item.key="endkey")
+            and not check.is_string(item.value) then
+            retval.insert(item.key,json.encode(item.value));
+        else
+            retval.insert(item.key,item.value);
+        endif;
+    enddo;
+    return retval;
+endfunction

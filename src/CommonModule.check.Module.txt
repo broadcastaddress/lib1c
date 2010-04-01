@@ -1,0 +1,432 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+//    Проверка режима работы
+/////////////////////////////////////////////////////////////////////////////
+
+function is_server() export
+    #if SERVER then
+        return true;
+    #endif
+    return false;
+endfunction
+
+function is_client() export
+    #if CLIENT then
+        return true;
+    #endif
+    return false;
+endfunction
+
+function is_external_connection() export
+    #if ExternalConnection then
+        return true;
+    #endif
+    return false;
+endfunction
+
+function debug() export
+    return SessionParameters.debug;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+//    Проверка основных типов
+/////////////////////////////////////////////////////////////////////////////
+
+function is_null(v) export
+    return v=null;
+endfunction
+
+function is_not_null(v) export
+    return v<>null;
+endfunction
+
+function is_undefined(v) export
+    return v=undefined;
+endfunction
+
+function is_not_undefined(v) export
+    return v<>undefined;
+endfunction
+
+function is_boolean(v) export
+    return typeof(v)=type("boolean");
+endfunction
+
+function is_number(v) export
+    return typeof(v)=type("number");
+endfunction
+
+function is_string(v) export
+    return typeof(v)=type("string");
+endfunction
+
+function is_date(v) export
+    return typeof(v)=type("date");
+endfunction
+
+function is_array(v) export
+    return typeof(v)=type("array");
+endfunction
+
+function is_fixedarray(v) export
+    return typeof(v)=type("fixedarray");
+endfunction
+
+function is_structure(v) export
+    return typeof(v)=type("structure");
+endfunction
+
+function is_map(v) export
+    return typeof(v)=type("map");
+endfunction
+
+function is_valuelist(v) export
+    return typeof(v)=type("valuelist");
+endfunction
+
+function is_metadata_object(v) export
+    return typeof(v)=type("MetadataObject");
+endfunction
+
+function metadata_contains(v) export
+    return metadata.findbytype(typeof(v))<>undefined;
+endfunction
+
+function is_object(v) export
+    ref=__extractReference(v);
+    return ref<>null and metadata.findbytype(typeof(v))<>undefined and ref<>v;
+endfunction
+
+function is_not_object(v) export
+    ref=__extractReference(v);
+    return ref=null or metadata.findbytype(typeof(v))=undefined or ref=v;
+endfunction
+
+function is_ref(v) export
+    ref=__extractReference(v);
+    return ref<>null and metadata.findbytype(typeof(v))<>undefined and ref=v;
+endfunction
+
+function is_not_ref(v) export
+    ref=__extractReference(v);
+    return ref=null or metadata.findbytype(typeof(v))=undefined or ref<>v;
+endfunction
+
+function is_uuid(v) export
+    pattern="^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$";
+    return  typeof(v)=type("uuid") or (is_string(v) and re.test(v,pattern));
+endfunction
+
+function is_binarydata(v) export
+    return typeof(v)=type("binarydata");
+endfunction
+
+function is_valuestorage(v) export
+    return typeof(v)=type("valuestorage");
+endfunction
+
+function type_is(expr,typelist) export
+    texpr=?(typeof(expr)=type("type"),expr,typeof(expr));
+    tlist=typeof(typelist);
+    if tlist=type("string") or tlist=type("array") then
+        list=new TypeDescription(typelist);
+        return list.containsType(texpr);
+    elsif tlist=type("type") then
+        return texpr=typelist;
+    elsif tlist=type("typedescription") then
+        return typelist.containsType(texpr);
+    else
+        return false;
+    endif;
+endfunction
+
+function type_is_not(expr,typelist) export
+    texpr=?(typeof(expr)=type("type"),expr,typeof(expr));
+    tlist=typeof(typelist);
+    if tlist=type("string") or tlist=type("array") then
+        list=new TypeDescription(typelist);
+        return not list.containsType(texpr);
+    elsif tlist=type("type") then
+        return texpr<>typelist;
+    elsif tlist=type("typedescription") then
+        return not typelist.containsType(texpr);
+    else
+        return false;
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function is_constant(expr) export
+    try
+        return metadata.constants.contains(expr.CreateValueManager().metadata());
+    except
+        try
+            return metadata.constants.contains(expr.metadata());
+        except
+            return false;
+        endtry;
+    endtry;
+endfunction
+
+function is_document(expr) export
+    return documents.allRefsType().containsType(typeof(expr.ref));
+endfunction
+
+function is_catalog(expr) export
+    return catalogs.AllRefsType().containsType(typeof(expr.ref));
+endfunction
+
+function is_charts_of_characteristic_types(expr) export
+    return chartsOfCharacteristicTypes.allRefsType().containsType(typeof(expr.ref));
+endfunction
+
+function is_inforegistry(expr) export
+    try
+        x=metadata.findbytype(typeof(expr)).InformationRegisterPeriodicity;
+        return True;
+    except
+        return False;
+    endtry;
+endfunction
+
+function is_accumulregistry(expr) export
+    try
+        x=metadata.findbytype(typeof(expr)).enableTotalsSplitting;
+        return True;
+    except
+        return False;
+    endtry;
+endfunction
+
+function is_enum(expr) export
+    try
+        x=metadata.findbytype(typeof(expr)).EnumValues;
+        return True;
+    except
+        return False;
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+//    Проверка искуственных типов
+/////////////////////////////////////////////////////////////////////////////
+
+function is_xmlstring_valid_type(v) export
+    return type_is(v,"undefined,
+                     |null,
+                     |boolean,
+                     |number,
+                     |string,
+                     |date,
+                     |uuid,
+                     |binarydata,
+                     |valuestorage,
+                     |AccountType,
+                     |AccountingRecordType,
+                     |AccumulationRecordType,
+                     |AllowedSign,
+                     |AllowedLength,
+                     |DateFractions");
+endfunction
+
+function is_xmlstring_valid_value(v) export
+    return type_is(v,"undefined,
+                    |null,
+                    |boolean,
+                    |number,
+                    |string,
+                    |date,
+                    |uuid,
+                    |binarydata,
+                    |valuestorage,
+                    |AccountType,
+                    |AccountingRecordType,
+                    |AccumulationRecordType,
+                    |AllowedSign,
+                    |AllowedLength,
+                    |DateFractions");
+endfunction
+
+function is_array_or_fixedarray(v) export
+    tval=typeof(v);
+    return tval=type("array") or tval=type("fixedarray");
+endfunction
+
+function is_structure_or_map(v) export
+    tval=typeof(v);
+    return tval=type("structure") or tval=type("map");
+endfunction
+
+function is_iterable(v) export
+    tval=typeof(v);
+    return  tval=type("array") or tval=type("fixedarray")
+            or tval=type("structure") or tval=type("map")
+            or tval=type("valuelist");
+endfunction
+
+function is_bin(v) export
+    return re.test(v,"^-?0b[01]+$");
+endfunction
+
+function is_binarr(v) export
+    if not is_array(v) or is_false(v) then
+        return false;
+    endif;
+    for each i in v do
+        if not is_boolean(i) then
+            return false;
+        endif;
+    enddo;
+    return true;
+endfunction
+
+function is_oct(v) export
+    return re.test(v,"^-?0[0-7]+$");
+endfunction
+
+function is_hex(v) export
+    return re.test(v,"^(?:-?0x|\x|\u)[0-9a-fA-F]+$");
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+//    Проверка значений
+/////////////////////////////////////////////////////////////////////////////
+
+function is_true(v) export
+    return convert.to_boolean(v);
+endfunction
+
+function is_false(v) export
+    return not convert.to_boolean(v);
+endfunction
+
+function is_equal(a,b) export
+    return cmp(a,b)=0;
+endfunction
+
+function is_not_equal(a,b) export
+    return cmp(a,b)<>0;
+endfunction
+
+function is_almost_equal(a,b,places=7) export
+    return cmp(round(a,places),round(b,places))=0;
+endfunction
+
+function is_not_almost_equal(a,b,places=7) export
+    return cmp(round(a,places),round(b,places))<>0;
+endfunction
+
+function is_greater(a,b) export
+    return cmp(a,b)>0;
+endfunction
+
+function is_greater_equal(a,b) export
+    return cmp(a,b)>=0;
+endfunction
+
+function is_less(a,b) export
+    return cmp(a,b)<0;
+endfunction
+
+function is_less_equal(a,b) export
+    return cmp(a,b)<=0;
+endfunction
+
+function is_in_range(expr,lbound,ubound) export
+    return cmp(expr,lbound)>=0 and cmp(expr,ubound)<=0;
+endfunction
+
+function regex_match(text,val pattern) export
+    if left(pattern,1)<>"^" then
+        pattern="^"+pattern;
+    endif;
+    if right(pattern,1)<>"$" then
+        pattern=pattern+"$";
+    endif;
+    return re.test(text,pattern);
+endfunction
+
+function is_in(member,container) export
+    tcontainer=typeof(container);
+    if tcontainer=type("string") then
+        return find(container,string(member))<>0;
+    elsif tcontainer=type("array") or tcontainer=type("fixedarray") then
+        return container.find(member)<>undefined
+    elsif tcontainer=type("structure") then
+        return container.property(member);
+    elsif tcontainer=type("map") then
+        return container.get(member)<>undefined;
+    elsif metadata.findbytype(tcontainer)<>undefined then
+        s=new Structure(member,Null);
+        fillPropertyValues(s,container,member);
+        return s[member]<>null;
+    else
+        return false;
+    endif;
+endfunction
+
+function is_not_in(member,container) export
+    tcontainer=typeof(container);
+    if tcontainer=type("string") then
+        return find(container,string(member))=0;
+    elsif tcontainer=type("array") or tcontainer=type("fixedarray") then
+        return container.find(member)=undefined
+    elsif tcontainer=type("structure") then
+        return not container.property(member);
+    elsif tcontainer=type("map") then
+        return container.get(member)=undefined;
+    elsif metadata.findbytype(tcontainer)<>undefined then
+        s=new Structure(member,Null);
+        fillPropertyValues(s,container,member);
+        return s[member]=null;
+    else
+        return false;
+    endif;
+endfunction
+
+function hasattr(expr,keys) export
+    list=?(is_string(keys),
+            string.split(keys,","),
+            keys);
+    if is_array_or_fixedarray(list) then
+        for each k in list do
+            if is_not_in(trimall(k),expr) then
+                return false;
+            endif;
+        enddo;
+    else
+        return false;
+    endif;
+    return true;
+endfunction
+
+function is_empty_ref(v) export
+    return is_ref(v) and v.isempty();
+endfunction
+
+function is_not_empty_ref(v) export
+    return is_ref(v) and not v.isempty();
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// User defined checks
+
+function is_user_type(v) export
+    return type_is(v,"DataProcessorObject.number,
+                     |DataProcessorObject.object,
+                     |DataProcessorObject.string");
+endfunction
+
+
+/////////////////////////////////////////////////////////////////////////////
+//function extractReference(expr)
+//
+// Return reference from passed value if avaiable or Null
+function __extractReference(expr)
+    if not metadata_contains(expr) then
+        return Null;
+    endif;
+    struct=new Structure("Ref",Null);
+    FillPropertyValues(struct,expr);
+    return struct.ref;
+endfunction

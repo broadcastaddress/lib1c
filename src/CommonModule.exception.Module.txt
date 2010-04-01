@@ -1,0 +1,170 @@
+﻿function Exception(type,msg,env) export
+    if not check.is_string(type) then
+        raise exception.TypeError("argument 1 (type) must be string",
+                                  new Structure("type,msg,env",type,msg,env));
+    endif;
+    if env=undefined then
+        env=new Structure();
+    else
+        if not check.is_structure(env) then
+            raise exception.TypeError("argument 3 (env) must be structure",
+                                      new Structure("type,msg,env",type,msg,env));
+        endif;
+    endif;
+    err=new Structure();
+    err.insert("type",type);// exception type which used in catch method
+                            // helps to determ exception kind
+    
+    err.insert("msg",msg);  // message, which will be showed as exception
+                            // description. Support formatting tokens as
+                            // string.reformat method allows. Arguments 
+                            // used from env parameter.
+    
+    err.insert("env",env);  // variables lookup for debug
+    
+    err.insert("src","<unknown>");
+    err.insert("line",0);
+    return err;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function BaseException(type,msg,env) export
+    return buildmsg(Exception(type,msg,env));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function AttributeError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"attribute reference or assignment error");
+    return BaseException("AttributeError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function COMObjectError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"unknown exception of COMObject");
+    return BaseException("COMObjectError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function IndexError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"invalid index or index is out of range");
+    return BaseException("IndexError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function KeyError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"invalid key name or key not found");
+    return BaseException("KeyError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function NameError(msg=undefined,env=undefined) export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function NotImplementedError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"feature is not implemented yet");
+    return BaseException("NotImplementedError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function OverflowError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"value overflow");
+    return BaseException("OverflowError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function PermissionError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"you have no permission for such operation");
+    return BaseException("PermissionError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function TransactionError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"transaction was aborted");
+    return BaseException("TransactionError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function TypeError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"invalid value type");
+    return BaseException("TypeError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function ValueError(msg=undefined,env=undefined) export
+    msg=?(check.is_true(msg),msg,"invalid value given");
+    return BaseException("ValueError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function buildmsg(err)
+    if metadata.CommonModules.find("environ")=undefined then
+        // common way
+        cache.set("exception.last",err);
+        msg=err.type+": "+chars.cr+err.msg;
+        msg=msg+chars.cr+chars.cr+"Enviroment:"+chars.cr;
+        for each item in err.env do
+            msg=msg+item.key
+                   +" <"+convert.to_string(typeof(item.value))+"> = "
+                   +item.value+chars.cr;
+        enddo;
+    else
+        // advanced way
+        msg = chars.cr + "Exceptions traceback (most recent goes last):"
+               + chars.cr;
+        for each errinfo in environ.get("/exceptions/exception") do
+            msg=msg+"    "+errinfo.type+" at "+errinfo.src
+                   +" line ("+errinfo.line+")"+chars.cr;
+        enddo;
+        msg=msg+chars.cr+err.type+": "+chars.cr+err.msg;
+        msg=msg+chars.cr+chars.cr+"Enviroment:"+chars.cr;
+        for each item in err.env do
+            msg=msg+item.key
+                   +" <"+convert.to_string(typeof(item.value))+"> = "
+                   +convert.to_string(item.value)+chars.cr;
+        enddo;
+        //
+        attrs=new Structure("date,errtype",currentdate(),err.type);
+        environ.put("/exceptions/exception",err,attrs);
+        root="/exceptions/exception[last()]";
+        environ.put(root+"/message",err.msg);
+        environ.put(root+"/environ",err.env);
+        environ.set("/exceptions/message",msg)
+    endif;
+    return msg;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function catch(errinfo) export
+    if metadata.CommonModules.find("environ")<>undefined then
+        if environ.has("/exceptions/message") 
+            and environ.get("/exceptions/message")[0]=errinfo.description then
+            err=environ.get("/exceptions/exception[last()]")[0];
+            err.src=errinfo.moduleName;
+            err.line=errinfo.lineNumber;
+            environ.set("/exceptions/exception[last()]",err);
+            return err;
+        else
+            err=Exception("UnhandledException",errinfo.description,undefined);
+            err.src=errinfo.moduleName;
+            err.line=errinfo.lineNumber;
+            return err;
+        endif;
+    endif;
+    return undefined;
+endfunction

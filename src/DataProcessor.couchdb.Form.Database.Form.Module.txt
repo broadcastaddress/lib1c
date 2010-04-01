@@ -1,0 +1,484 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of Database class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+var _name export;
+var _resource export;
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function init()
+//  Инициализация объекта
+//
+//    Возвращает:
+//      thisobject
+//
+function init(url,name,session=undefined) export
+    if typeof(url)=type("string") then
+        _resource=self.Resource(url,session);
+    else
+        _resource=url;
+    endif;
+    _name=name;
+    return thisform;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function exists()
+//  Проверяет существование базы на сервере
+//
+//    Возвращает:
+//      <boolean>
+//
+function exists() export
+    try
+        _resource.head();
+        return True;
+    except
+        return False;
+    endtry
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function repr()
+//  Возвращает строковое представление объекта
+//
+//    Возвращает:
+//      <string>
+//
+function repr() export
+    return "<Database "+_name+">";
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function count()
+//  Возвращает количество документов в базе
+//
+//    Возвращает:
+//      <number>
+//
+function count() export
+    return _resource.get_json().data["doc_count"];
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function get(id)
+//  Возвращает документ по его id
+//
+//    Параметры:
+//      id <string> -- id документа
+//
+//    Возвращает:
+//      <map>
+//
+function get(id) export
+    return _resource.get_json(id).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function set(id,content)
+//  Создает/обновляет документ по id
+//
+//    Параметры:
+//           id <string> -- id документа
+//      content <structure>, <map> -- данные документа
+//
+//    Возвращает:
+//      content
+//
+//    Описание:
+//      Если content содержит атрибут _rev, то будет произведено
+//      обновление документа, иначе будет попыка его создать.
+//
+//      По завершению операции, обновляет ключи _id и _rev у content.
+//
+//      Баг. Если следовать указаниям комментария метода create, то
+//      в случае указания в id любых символов, требующих кодирования
+//      по стандарту форматирования uri, то при создании нового документа
+//      id будет испорчен. Фикс включен.
+//
+function set(id,content) export
+    if not has(id) then
+        content.insert("_id",id);
+        res=_resource.post_json(undefined,content);
+    else
+        res=_resource.put_json(id,content);
+    endif;
+    content.insert("_id",res.data["id"]);
+    content.insert("_rev",res.data["rev"]);
+    return content;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function del(id_or_doc)
+//  Удаляет документ из базы
+//
+//    Параметры:
+//      id_or_doc <string>,<structure>,<map> -- id документа или сам документ
+//
+//    Исключения:
+//      ResourceConflict
+//
+//    Возвращает:
+//      True - как знак успеха операции.
+//
+//    Описание:
+//      Если был передан документ и он был изменен, то есть текущая ревизия
+//      не совпадает с ревизией документа, то будет вызвано исключение
+//      ResourceConflict.
+//
+function del(id_or_doc) export
+    if typeof(id_or_doc)=type("string") then
+        id=id_or_doc;
+        res=_resource.head(id);
+        params=new Structure("rev",string.strip(res.headers["etag"],""""));
+        _resource.delete_json(id,undefined,params);
+    else
+        doc=id_or_doc;
+        return self.resource.delete_json(doc["_id"],
+                                         new Structure("rev",doc["_rev"]));
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function has(id)
+//  Проверяет наличие документа по id в базе
+//
+//    Параметры:
+//      id <string> -- id документа
+//
+//    Исключения:
+//      Любая ошибка, кроме ResourceNotFound.
+//
+//    Возвращает:
+//      <boolean>
+//
+function has(id) export
+    try
+        _resource.head(id);
+        return True;
+    except
+        err=exception.catch(errorInfo());
+        if err.type="ResourceNotFound" then
+            return False;
+        else
+            raise;
+        endif;
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function list()
+//  Возвращает список документов в базе
+//
+//    Возвращает:
+//      <array>
+//
+function list() export
+    res=new Array();
+    for each item in view("_all_docs")["rows"] do
+        res.add(item["id"]);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function create(content)
+//  Создает новый документ в базе с случайным ID, сгенерированным сервером.
+//
+//    Параметры:
+//      content <string>, <structure>, <map> -- данные документа
+//
+//    Возвращает:
+//      <string> - id созданного документа
+//
+//    Описание:
+//      ВНИМАНИЕ! Лучше избегать применение данного метода и использовать
+//      метод `set`. Это обусловленно тем, что метод POST HTTP протокола
+//      обязует автоматический повтор запроса, если возникли проблемы где-то
+//      на сетевом уровне, что может привести к попытке создания нескольких
+//      одинаковых документов с разными идентификаторами в базе.
+//
+//      Лучше воспользоваться методом set или предварительно сгенерировать id.
+//
+function create(content) export
+    return _resource.post_json(undefined,content).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function commit()
+//  Применяет сделанные изменения в базе
+//
+//    Описание:
+//      Если сервер был сконфигурирован с отложенной записью или
+//      предыдущий запрос содержал заголовок `X-Couch-Full-Commit: false`
+//      для отключения моментальной записи, этот метод может быть использован
+//      для уверенности, что все не записанные данные будут записаны 
+//      на физический носитель
+//
+//      FIXME: омгкакэтовообщеможночитатьаааааааа!
+function commit() export
+    return _resource.post_json("_ensure_full_commit").data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function compact(id=undefined)
+//  Ужимает базу или индексы документов
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Описание:
+//      Без аргумента будет произведена попытка удалить все старые ревизии
+//      документов из базы. С аргументом - будет очищен кэш индекса по всем
+//      запросам в дизайне указанного документа.
+//
+function compact(id=undefined) export
+    if id<>undefined then
+        return _resource.copy("_compact").post_json(id).data["ok"];
+    else
+        return _resource.post_json("_compact").data["ok"];
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function revisions(id,options=undefined)
+//  revision("A123241") -> Array(Map({...}),Map({...}),Map({...}))
+//
+//    Параметры:
+//      id <string> -- id документа
+//
+//    Возвращает:
+//      <array>
+//
+//    Описание:
+//      Возвращает все ревизии документа в обратном хронологическом порядке,
+//      если такие имеются в наличии
+//
+function revisions(id) export
+    revs=new Array();
+    try
+        res=_resource.get_json(id,new Structure("revs",True));
+    except
+        err=exception.catch(errorInfo());
+        if err.type="ResourceNotFound" then
+            return revs;
+        else
+            raise;
+        endif;
+    endtry;
+    options=new map();
+    startrev=res.data["_revisions"]["start"];
+    i=0;
+    for each rev in res.data["_revisions"]["ids"] do
+        options.insert("rev",string(startrev-i)+"-"+rev);
+        revision=thisform.get(id,options);
+        if revision=undefined then
+            return revs;
+        endif;
+        revs.add(revision);
+        i=i+1;
+    enddo;
+    return revs;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function ping()
+//  Проверяет доступность базы
+//
+//    Возвращает:
+//      <boolean>
+//
+function ping() export
+    try
+        _resource.head();
+        return True;
+    except
+        return False;
+    endtry;
+endfunction
+
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function info()
+//  Возвращает информацию о базе
+//
+//    Возвращает:
+//      <map>
+//
+function info() export
+    res=_resource.get_json();
+    _name=res.data["db_name"];
+    return res.data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function delete_attachment(doc,filename)
+//  Удаляет прикрепленный файл filename из документа doc
+//
+//    Параметры:
+//           doc <map>,<structure> -- документ
+//      filename <string> -- имя прикрепленного файла
+//
+//    Возвращает:
+//      doc с новой ревизией.
+//
+//    Замечание:
+//      Учтите, что переданный документ `doc` должен содержать атрибут `_rev`
+function delete_attachment(doc,filename) export
+    res=_resource.copy(doc["_id"])
+                 .delete_json(filename,
+                              undefined,
+                              new Structure("rev",doc["_rev"]));
+    doc["_rev"]=res.data["rev"];
+    return doc;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function get_attachment(id_or_doc,filename,default=undefined)
+//  Возвращает прикрепленный файл filename или default, если его нет.
+//
+//    Параметры:
+//      id_or_doc <string>,<map>,<structure> -- id документа или сам документ
+//       filename <string> -- имя прикрепленного файла
+//        default <any> -- возвращаемое значение в случае отсутствия 
+//                         файла или документа
+//    Возвращает:
+//      <binarydata>
+function get_attachment(id_or_doc,filename,default=undefined) export
+    id=?(typeof(id_or_doc)=type("string"),id_or_doc,id_or_doc["_id"]);
+    try
+        return xmlvalue(type("binarydata"),
+                        _resource.copy(id).get(filename).data);
+    except
+        err=exception.catch(errorInfo());
+        if err.type="ResourceNotFound" then
+            return default;
+        endif;
+        raise;
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function put_attachment(doc,content,filename=undefined,content_type=undefined)
+//  Прикрепляет данные content к документу doc с именем filename.
+//
+//    Параметры:
+//               doc -- <map>,<structure> объект документа
+//           content -- <string>,<binarydata> файл или путь к нему
+//          filename -- <string> имя файла в документе
+//      content_type -- <string> ручная установка MIME-тип данных,
+//                      по умолчанию угадывается по расширению файла
+//
+//    Возвращает:
+//      True - как знак успеха операции
+//
+//    Замечание:
+//      Учтите, переданный документ `doc` должен содержать поле `_rev`.
+function put_attachment(doc,content,filename=undefined,
+                        content_type=undefined) export
+    raise exception.NotImplementedError("Need to provide raw access to file not to encoded one");
+    if typeof(content)=type("binarydata") then
+        data=xmlstring(content);
+    elsif typeof(content)=type("string") then
+        data=xmlstring(new binarydata(content));
+    else
+        raise exception.TypeError(
+            "Binary data expected or path to file",
+            new Structure(doc,content,filename,content_type)
+        );
+    endif;
+    if filename=undefined then
+        filename=content.name;
+    endif;
+    if content_type=undefined then
+        //
+    endif;
+    res=_resource.copy(doc["_id"])
+                 .put_json(filename,
+                           content,
+                           new Structure("Content-Type",content_type),
+                           new Structure("rev",doc["_rev"]));
+    doc["_rev"]=res.data["rev"];
+    return doc;
+endfunction
+
+// Not Implemented
+function query(map_func,reduce_fun=undefined,lang="javascript",wrapper=undefined)
+    raise exception.NotImplementedError();
+endfunction
+
+function update(docs,atomic=False) export
+    if not check.is_array_or_fixedarray(docs) then
+        msg="Invalid `docs` type. Expected array.";
+        raise exception.TypeError(msg,new Structure("docs,atomic",
+                                                     docs,atomic));
+    endif;
+    for each doc in docs do
+        if not check.is_structure_or_map(doc) then
+            msg="Invalid `docs` item type. Expected structure or map.";
+            raise exception.TypeError(msg,new Structure("docs,atomic",
+                                                         docs,atomic));
+        endif;
+    enddo;
+    content=new Structure("all_or_nothing,docs",atomic,docs);
+    results=new Array();
+    res=_resource.post_json("_bulk_docs",content);
+    i=0;
+    for each result in res.data do
+        if result.get("error")<>undefined then
+            arr=new Array();
+            arr.add(False);
+            arr.add(result["id"]);
+            arr.add(result["error"]+": "+result["reason"]);
+            results.add(arr);
+        else
+            arr=new Array();
+            arr.add(True);
+            arr.add(result["id"]);
+            arr.add(result["rev"]);
+            results.add(arr);
+            // Is this a good idea?
+            docs[i]["_id"]=result["id"];
+            docs[i]["_rev"]=result["rev"];
+        endif;
+        i=i+1;
+    enddo;
+    return results;
+endfunction
+
+// Execute a predefined view.
+function view(val name,wrapper=undefined,options=undefined) export
+    if not string.startswith(name,"_") then
+        l=string.split(name,"/",1);
+        design=l[0];
+        name=l[1];
+        name="_design/"+design+"/_view/"+name;
+    endif;
+    return self.PermView(
+                _resource.copy(string.split(name,"/")),
+                name,
+                wrapper).exec(options);
+endfunction

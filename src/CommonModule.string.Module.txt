@@ -1,0 +1,604 @@
+﻿function base64encode(s) export
+    b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    enc="";
+    tmp_arr=new Array();
+    if s="" then
+        return s;
+    endif;
+    data=utf8encode(s);
+    l=strlen(data);
+    i=1;
+    while True do
+        o1=charcode(mid(data,i,1));
+        i=i+1;
+        o2=charcode(mid(data,i,1));
+        i=i+1;
+        o3=charcode(mid(data,i,1));
+        i=i+1;
+        if o1=-1 then
+            o1=o1+1;
+        endif;
+        if o2=-1 then
+            o2=o2+1;
+        endif;
+        if o3=-1 then
+            o3=o3+1;
+        endif;
+        bits=math.or_(
+                math.or_(
+                    math.lshift(o1,16),
+                    math.lshift(o2,8)
+                ),
+                o3);
+        h1=math.and_(math.rshift(bits,18),"0x3f");
+        h2=math.and_(math.rshift(bits,12),"0x3f");
+        h3=math.and_(math.rshift(bits,6),"0x3f");
+        h4=math.and_(bits,"0x3f");
+        chunk=mid(b64,h1+1,1)+mid(b64,h2+1,1)+mid(b64,h3+1,1)+mid(b64,h4+1,1);
+        tmp_arr.add(chunk);
+        if i>l then
+            break;
+        endif;
+    enddo;
+    enc=string.join("",tmp_arr);
+    if l%3=1 then
+        enc=string.slice(enc,0,-2)+"==";
+    elsif l%3=2 then
+        enc=string.slice(enc,0,-1)+"=";
+    endif;
+    return enc;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function base64decode(s) export
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function capitalize(val s)
+//
+function capitalize(val s) export
+    return upper(string.pop(s,0))+lower(s);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+// from http://www.csse.monash.edu.au/~lloyd/tildeAlgDS/Dynamic/Edit/
+// by L. Allison
+// return strings difference score
+function dpa(s1,s2) export
+    if not check.is_string(s1) then
+        raise exception.TypeError("argument 1 (s1) must be string type",
+                                  new Structure("s1,s2",s1,s2));
+    endif;
+    if not check.is_string(s2) then
+        raise exception.TypeError("argument 2 (s2) must be string",
+                                  new Structure("s1,s2",s1,s2));
+    endif;
+    m=new Array();
+    l1=strlen(s1)-1;
+    l2=strlen(s2);
+    for i=0 to l1 do
+        m.add(new Array(l2));
+    enddo;
+    m[0][0]=0;    // boundary conditions
+    l2=l2-1;
+    for j=1 to l2 do
+        m[0][j]=m[0][j-1]+1;    // boundary conditions
+    enddo;
+    for i=1 to l1 do
+        m[i][0]=m[i-1][0]+1;    // boundary conditions
+        for j=1 to l2 do
+            diag=m[i-1][j-1];
+            if mid(s1,i-1,1)<>mid(s2,j-1,1) then
+                diag=diag+1;
+            endif;
+            m[i][j]=min(diag,                // match or change
+                        min(m[i-1][j]+1,    // deletion
+                            m[i][j-1]+1)    // insertion
+                    );
+        enddo;
+    enddo;
+    return m[l1][l2];
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function endswith(s,suffix)
+//
+//    Return True if the string ends with the specified suffix,
+//    otherwise return False.
+function endswith(s,suffix) export
+    return suffix=string.slice(s,-strlen(suffix),null);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function join(sep,s)
+//
+//    Return a string which is the concatenation of the strings in s.
+//    The separator between elements is the string providing this method.
+function join(sep,s) export
+    if not check.is_string(sep) then
+        msg="Separator (sep) must be string type";
+        raise exception.TypeError(msg,new Structure("sep,s",sep,s));
+    endif;
+    if check.is_string(s) then
+        arr=convert.to_array(s);
+    else
+        if not check.is_array_or_fixedarray(s) then
+            msg="argument 2 (s) must be array type";
+            raise exception.TypeError(msg,new Structure("sep,s",sep,s));
+        endif;
+        arr=s;
+    endif;
+    res="";
+    l=arr.ubound();
+    if l>=0 then
+        res=arr[0];
+        for i=1 to l do
+            res=res+sep+arr[i];
+        enddo;
+    endif;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function pop(s,start=undefined,end=undefined)
+//
+//    Remove and return an arbitrary element from the set.
+//
+//    With optional start, pops element for this position.
+//    With optional end, pops slice of elements till this position.
+//    start and end may be negative for reverse lookback.
+//    To pop slice from start till the end, end must be setted to null.
+function pop(s,start=undefined,end=undefined) export
+    if not check.is_string(s) then
+        raise exception.TypeError("argument 1 (s) must be string type",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    if start<>undefined and not check.is_number(start) then
+        raise exception.TypeError("argument 2 (start) must be number",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    if not (end=undefined or end=null) and not check.is_number(end) then
+        raise exception.TypeError("argument 3 (end) must be number,
+                                  |undefined or null",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    len=strlen(s);
+    if start=undefined and end=undefined then
+        start=len-1;
+    elsif start=undefined then
+        start=0;
+    elsif start<0 then
+        start=len+start;
+        if start<0 then
+            start=0;
+        endif;
+    endif;
+    if end=undefined then
+        count=1;
+    elsif end=null then
+        count=len;
+    elsif end<0 then
+        count=len-start+end;
+    else
+        count=end-start;
+    endif;
+    start=start+1;
+    others="";
+    if count>0 then
+        others=mid(s,start,count);
+        if start=1 then
+            s=mid(s,strlen(others)+1);
+        else
+            s=mid(s,1,start-1)+mid(s,start+strlen(others));
+        endif;
+    endif;
+    return others;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _getattr(o,k)
+    tval=typeof(o);
+    if tval=type("array") or tval=type("fixedarray") then
+        return o[number(k)];
+    elsif tval=type("structure") or tval=type("map") then
+        return o[k];
+    elsif check.metadata_contains(o) then
+        st=new Structure(k,Null);
+        FillPropertyValues(st,o);
+        return st[k];
+    else
+        return eval("o."+k);
+    endif;
+endfunction
+
+function reformat_apply_token(token,args)
+    if find(token,"!")>0 then
+        list=string.split(token,"!");
+        token=list[0];
+        mod=list[1];
+    endif;
+    cur=args;
+    list=string.split(token,".");
+    for each chunk in list do
+        if string.endswith(chunk,"]") then
+            k=string.slice(chunk,0,find(chunk,"[")-1);
+            cur=cur.get(k);
+            indexes=re.findall(chunk,"\[(\d+)\]");
+            for each index in indexes do
+                cur=cur[number(index)];
+            enddo;
+        endif;
+        try
+            cur=_getattr(cur,chunk);
+        except
+            if mod<>undefined and string.startswith(mod,"?")then
+                return string.split(mod,"?")[1];
+            else
+                raise exception.ValueError(ErrorInfo().Description);
+            endif
+        endtry;
+    enddo;
+    value=cur;
+    if mod=undefined then
+        return value;
+    elsif mod="s" or mod="str" then
+        return convert.to_string(value);
+    elsif mod="t" or mod="type" then
+        return convert.to_string(typeof(value));
+    elsif mod="x" or mod="xml" then
+        return xmlstring(value);
+    else
+        return value;
+    endif;
+endfunction
+
+function reformat_apply_args(text,args)
+    if args=null then
+        return text;
+    endif;
+    tokens=?(typeof(args)=type("array") or typeof(args)=type("fixedarray"),
+             re.findall(text,"{(\d+.*?(?:!\w+)?)}"),
+             re.findall(text,"{([\wа-яА-Я].*?(?:!\w+)?)}")
+            );
+    if tokens=undefined then
+        return text;
+    endif;
+    for each token in tokens do
+        text=strreplace(text,"{"+token+"}",reformat_apply_token(token,args));
+    enddo;
+endfunction
+
+//function reformat(val text,args1=undefined,args2=undefined)
+//
+//    Convert a value to a "formatted" representation using own micro-language.
+//
+//    Common syntax:
+//        {key[keys]!mod} 
+//        key - array index or structure key name
+//        keys- chain of attibute resolvers. use [i] for arrays or . (dot)
+//            for structures or objects you may build long chains 
+//            e.g. "{users.mike.phone[1]}" or "{0.users[0].phone[0]}"
+//        mod - value modificator:
+//        s - return value passed thought string function
+//        t - return values type name as string
+//        x - return value passed thought xmlstring function
+//    by default return value itself
+function reformat(val s,args1=null,args2=null) export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string type";
+        raise exception.TypeError(msg,new Structure(s,args1,args2));
+    endif;
+    if s="" then
+        return s
+    endif;
+    //fix condition
+    if not check.type_is_not(args1,"undefined,boolean,number,string,date") then
+        msg="argument 2 (args1) must not be one of this types:
+            |undefined, boolean, number, string, date";
+        raise exception.TypeError(msg,new Structure(s,args1,args2));
+    endif;
+    //fix condition
+    if not check.type_is_not(args2,"undefined,boolean,number,string,date") then
+        msg="argument 3 (args2) must not be one of this types:
+            |undefined, boolean, number, string, date";
+        raise exception.TypeError(msg,new Structure(s,args1,args2));
+    endif;
+    reformat_apply_args(s,args1);
+    reformat_apply_args(s,args2);
+    return s;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function replace(s,pattern,newstr)
+//
+//    Shortcut for re.replace
+function replace(s,pattern,newstr) export
+    return re.replace(s,pattern,newstr);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function slice(s,start=0,end=undefined) export
+    if not check.is_string(s) then
+        raise exception.TypeError("argument 1 (s) must be string type",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    if start<>0 and not check.is_number(start) then
+        raise exception.TypeError("argument 2 (start) must be number",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    if not (end=undefined or end=null) and not check.is_number(end) then
+        raise exception.TypeError("argument 3 (end) must be number,
+                                  |undefined or null",
+                                  new Structure("s,start,end",s,start,end));
+    endif;
+    len=strlen(s);
+    if start<0 then
+        start=len+start;
+        if start<0 then
+            start=0;
+        endif;
+    endif;
+    if end=undefined then
+        count=1;
+    elsif end=null then
+        count=len;
+    elsif end<0 then
+        count=len-start+end;
+    else
+        count=end-start;
+    endif;
+    return ?(count>0,mid(s,start+1,count),"");
+endfunction
+
+//function startswith(s,prefix)
+//
+//    Return True if string starts with the prefix, otherwise return False.
+//    prefix can also be an array of prefixes to look for.
+function startswith(s,prefix) export
+    return prefix=slice(s,0,strlen(prefix));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function split(val s,sep,count=0) export
+    if not check.is_string(s) then
+        raise exception.TypeError("argument 1 (s) must be string type",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    if not check.is_string(sep) then
+        raise exception.TypeError("Separator (sep) must be string type",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    if not check.is_number(count) then
+        raise exception.TypeError("argument 3 (count) must be number",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    if count<0 then
+        count=0;
+    endif;
+    stack=new Array();
+    slen=strlen(s);
+    seplen=strlen(sep);
+    while True do
+        bay=find(s,sep);
+        if bay=0 then
+            break;
+        endif;
+        stack.add(mid(s,1,bay-1));
+        s=mid(s,bay+seplen);
+        if count<>0 and stack.count()=count then
+            break;
+        endif;
+    enddo;
+    stack.add(s);
+    return stack;
+endfunction
+
+function rsplit(s,sep,count=-1) export
+    if count=-1 or (typeof(count)=type("number") and count<0) then
+        return string.split(s,sep);
+    endif;
+    if not check.is_string(s) then
+        raise exception.TypeError("argument 1 (s) must be string type",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    if not check.is_string(sep) then
+        raise exception.TypeError("Separator (sep) must be string type",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    if not check.is_number(count) then
+        raise exception.TypeError("argument 3 (count) must be number",
+                                  new Structure("s,sep,count",s,sep,count));
+    endif;
+    res=new Array();
+    res.add(string.split(s,sep));
+    for i=1 to count do
+        res.insert(1,array.pop(res[0]))
+    enddo;
+    res[0]=string.join(sep,res[0]);
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function lstrip(s,chs=undefined) export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    if chs=undefined then
+        return triml(s);
+    endif;
+    if not check.is_string(chs) then
+        msg="argument 2 (chr) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    shift=1;
+    if strlen(chs)=1 then
+        // little speedup for single chars
+        while mid(s,shift,1)=chs do
+            shift=shift+1;
+        enddo;
+    else
+        while find(chs,mid(s,shift,1))>0 do
+            shift=shift+1;
+        enddo;
+    endif;
+    return mid(s,shift);
+endfunction
+
+function strip(s,chs=undefined) export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    if chs=undefined then
+        return trimall(s);
+    endif;
+    if not check.is_string(chs) then
+        msg="argument 2 (chr) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    // TODO: double checks..fix it
+    return string.lstrip(string.rstrip(s,chs),chs);
+endfunction
+
+function rstrip(s,chs=undefined) export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    if chs=undefined then
+        return trimr(s);
+    endif;
+    if not check.is_string(chs) then
+        msg="argument 2 (chr) must be string type";
+        raise exception.TypeError(msg,new Structure("s,chs",s,chs));
+    endif;
+    
+    shift=strlen(s);
+    if strlen(chs)=1 then
+        // little speedup for single chars
+        while mid(s,shift,1)=chs do
+            shift=shift-1;
+        enddo;
+    else
+        while find(chs,mid(s,shift,1))>0 do
+            shift=shift-1;
+        enddo;
+    endif;
+    return mid(s,1,shift);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function ljust(s,size,chr=" ") export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if not check.is_number(size) then
+        msg="argument 2 (size) must be number";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if not check.is_string(chr) then
+        msg="argument 3 (chr) must be string";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if strlen(chr)>1 then
+        raise exception.ValueError(
+            "argument 3 must be char, not str",
+            new Structure("s,size,chr",s,size,chr)
+        );
+    endif;
+    while strlen(s)<size do
+        s=s+chr;
+    enddo;
+    return s;
+endfunction
+
+function center(s,size,chr=" ") export
+    raise exception.NotImplementedError();
+endfunction
+
+function rjust(s,size,chr=" ") export
+    if not check.is_string(s) then
+        msg="argument 1 (s) must be string";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if not check.is_number(size) then
+        msg="argument 2 (size) must be number";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if not check.is_string(chr) then
+        msg="argument 3 (chr) must be string";
+        raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
+    endif;
+    if strlen(chr)>1 then
+        raise exception.ValueError(
+            "argument 3 must be char, not str",
+            new Structure("s,size,chr",s,size,chr)
+        );
+    endif;
+    while strlen(s)<size do
+        s=chr+s;
+    enddo;
+    return s;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function utf8encode(s) export
+    res="";
+    l=strlen(s);
+    for i=1 to l do
+        c=mid(s,i,1);
+        cc=charcode(c);
+        if cc<128 then
+            res=res+c;
+        elsif cc>127 and cc<2048 then
+            res=res+char(math.or_(math.rshift(cc,6),192));
+            res=res+char(math.or_(math.and_(cc,63),128));
+        else
+            res=res+char(math.or_(math.rshift(cc,12),224));
+            res=res+char(math.or_(math.and_(math.rshift(cc,6),63),128));
+            res=res+char(math.or_(math.and_(cc,63),128));
+        endif;
+    enddo;
+    return res;
+endfunction
+
+function utf8decode(s) export
+    i=1;
+    res="";
+    l=strlen(s);
+    while i<=l do
+        c=mid(s,i,1);
+        cc=charcode(c);
+        if cc<128 then
+            res=res+c;
+            i=i+1;
+        elsif cc>191 and cc<224 then
+            cc2=charcode(mid(s,i+1,1));
+            // ((c1 & 31) << 6) | (c2 & 63)
+            res=res+char(math.or_(math.lshift(math.and_(cc,31),6),math.and_(cc2,63)));
+            i=i+2;
+        else
+            cc2=charcode(mid(s,i+1,1));
+            cc3=charcode(mid(s,i+2,1));
+            //((c1 & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63)
+            res=res+char(math.or_(math.or_(math.lshift(math.and_(cc,15),12),math.lshift(math.and_(cc2,63),6)),math.and_(cc3,63)));
+            i=i+3;
+        endif;
+    enddo;
+    return res;
+endfunction

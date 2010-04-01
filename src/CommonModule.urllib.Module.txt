@@ -1,0 +1,583 @@
+﻿function XMLHTTPError(msg=undefined,env=undefined)
+    return exception.BaseException("XMLHTTPError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function request(url="",method="GET",query=undefined,headers=undefined) export
+    if not check.is_string(url) then
+        msg="Request url must be string type";
+        raise exception.TypeError(msg,new Structure("url,method",url,method));
+    endif;
+    if not check.is_string(method) then
+        msg="Request method must be string type";
+        raise exception.TypeError(msg,new Structure("url,method",url,method));
+    endif;
+    req=new Structure();
+    if url<>"" then
+        req.insert("url",urlsplit(url));
+    endif;
+    req.insert("method",upper(method));
+    req.insert("query",req.url.query);
+    req.insert("headers",new Map());
+    return req;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _prepare_request(req)
+    if not check.hasattr(req,"url,method,query,headers") then
+        msg="Request must have following attributes: url,method,query,headers";
+        raise exception.ValueError(msg,new Structure("req",req));
+    endif;
+    if not (check.is_string(req.url) or check.is_structure(req.url)) then
+        msg="Request url must be string or structure type";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    if not check.is_string(req.method) then
+        msg="Request method must be string type";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    if not check.is_map(req.headers) then
+        msg="Request headers must be mapping";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    for each header in req.headers do
+        if not check.is_string(header.key) then
+            msg="Request header name must be string";
+            s=new Structure("req,header.key,header.value",
+                             req,header.key,header.value);
+            raise exception.TypeError(msg,s);
+        endif;
+        if not (check.is_string(header.value) 
+                or check.is_number(header.value)) then
+            msg="Request header value must be string or number";
+            s=new Structure("req,header.key,header.value",
+                             req,header.key,header.value);
+            raise exception.TypeError(msg,s);
+        endif;
+    enddo;
+    if req.method="GET" or req.method="HEAD" then
+        req.insert("send",Null);
+    else
+        if check.is_structure_or_map(req.query) then
+            req.insert("send",Null);//split_query(req.query));
+        else
+            req.insert("send",req.query);
+        endif;
+        req.url["query"]=new Map();
+    endif;
+    return req;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function send(req) export
+    _prepare_request(req);
+    try
+        XMLHTTPRequest=new COMObject("Msxml2.XMLHTTP");
+    except
+        try
+            XMLHTTPRequest=new COMObject("Microsoft.XMLHTTP");
+        except
+            raise XMLHTTPError(errorInfo().description);
+        endtry;
+    endtry;
+    try
+        XMLHTTPRequest.open(req.method,urlunsplit(req.url),false);
+        for each item in req.headers do
+            XMLHTTPRequest.setRequestHeader(item.key,item.value);
+        enddo;
+        XMLHTTPRequest.send(req.send);
+    except
+        raise XMLHTTPError(
+            errorInfo().description,
+            new Structure("req",req)
+        );
+    endtry;
+    return response(XMLHTTPRequest,req);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function response(XMLHTTPRequest,req)
+    res=new Structure();
+    // default attrs.
+    // let's agree that that attrs will be read-only to keep
+    // access to raw response whatever it will be needed
+    res.insert("readyState",XMLHTTPRequest.readyState);
+    res.insert("responseText",XMLHTTPRequest.responseText);
+    res.insert("responseXML",XMLHTTPRequest.responseXML);
+    res.insert("status",XMLHTTPRequest.status);
+    res.insert("statusText",XMLHTTPRequest.statusText);
+    // custom attrs
+    headers=new map();
+    hlist=string.split(XMLHTTPRequest.getAllResponseHeaders(),
+                       chars.cr+chars.lf);
+    for each hrow in hlist do
+        if hrow<>"" then
+            hpart=string.split(hrow,":",1);
+            headers.insert(trimall(hpart[0]),trimall(hpart[1]));
+        endif;
+    enddo;
+    res.insert("headers",headers);
+    res.insert("request",req);
+    res.insert("data",res.responseText); // copy responseText property
+    // for conversions and changes while default answer will be keeped 
+    // unchanged. will this make memory problems in future?
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Parsing:
+
+function mkpair(v,c)
+    return ?(find(v,c)>0,string.split(v,c,1),pair(v,undefined));
+endfunction
+
+//function urlsplit(url)
+//  Разбивает url на структуру вида:
+//    <scheme>://<username>:<password>@<host>:<port>/<path>?<query>#<anchorn>
+//
+//    Параметры:
+//      url <string> -- url строка
+//
+//    Возвращает:
+//      <structure>:[scheme,username,password,host,port,path,query,anchorn]
+//
+//    Описание:
+//      Если отсутствует какой либо компонент адреса url, он заменяется на
+//      пустое значение типа секции. Секции типизированны следующим образом:
+//          scheme,username,password,host,path,anchorn - <string>
+//          query - <map>
+//           port - <number>
+//
+//      При разборе url декодирует экранированные символы.
+//
+//      Метод urlunsplit собирает полученный результат в исходную строку.
+function urlsplit(url) export
+    urlstruct=new Structure("scheme,username,password,host,
+                            |port,path,query,anchorn",
+                            "","","","",0,"",new map(),"");
+    if find(url,":")>0 then
+        res=mkpair(url,":");
+        scheme=res[0];
+        tail=res[1];
+        urlstruct.scheme=scheme;
+        if tail=undefined then
+            return urlstruct;
+        endif;
+    else
+        tail=url;
+    endif;
+    res=mkpair(tail,"#");
+    head=res[0];
+    anchorn=res[1];
+    if anchorn<>undefined then
+        urlstruct.anchorn=unquote(anchorn);
+    endif;
+    res=mkpair(head,"?");
+    rest=res[0];
+    query=res[1];
+    if query<>undefined then
+        for each item in string.split(query,"&") do
+            if item<>"" then
+                res=mkpair(item,"=");
+                // handles situations when query is like key=value&debug
+                if res[1]=undefined then
+                    urlstruct.query.insert(unquote(res[0]),"");
+                else
+                    urlstruct.query.insert(unquote(res[0]),unquote(res[1]));
+                endif;
+            endif;
+        enddo;
+    endif;
+    if not mid(rest,1,2)="//" then
+        urlstruct.path=unquote(rest);
+    else
+        rest=mid(rest,3);
+        res=mkpair(rest,"/");
+        head=res[0];
+        path=res[1];
+        if path<>undefined then
+            path=unquote(path);
+            urlstruct.path=?(string.endswith(path,"/"),
+                             string.slice(path,0,-1),
+                             path);
+        endif;
+        if head<>"" then
+            if find(head,"@")>0 then
+                res=mkpair(head,"@");
+                userpass=res[0];
+                hostport=res[1];
+            else
+                userpass=undefined;
+                hostport=head;
+            endif;
+            if hostport<>"" then
+                res=mkpair(hostport,":");
+                host=res[0];
+                port=res[1];
+                urlstruct.host=unquote(host);
+                if port<>undefined and port<>"" then
+                    try
+                        urlstruct.port=number(port);
+                    except
+                        raise exception.ValueError();
+                    endtry;
+                endif;
+            endif;
+            if userpass<>undefined then
+                res=mkpair(userpass,":");
+                username=res[0];
+                password=res[1];
+                urlstruct.username=unquote(username);
+                if password<>undefined then
+                    urlstruct.password=unquote(password);
+                endif;
+            endif;
+        endif;
+    endif;
+    return urlstruct;
+endfunction
+
+// splitschema('type:opaquestring') --> 'type', 'opaquestring'.
+function splitschema(url) export
+    res=re.match(url,"^([^/:]+):");
+    if res<>undefined then
+        schema=res.groups[0];
+        return pair(lower(schema),mid(url,strlen(schema)));
+    endif;
+    return pair(undefined,url);
+endfunction
+
+// splithost('//host[:port]/path') --> 'host[:port]', '/path'.
+function splitnetloc(url) export
+    res=re.match(url,"^//([^/?]*)(.*)$)");
+    return ?(res<>undefined,res.groups,pair(undefined,url));
+endfunction
+
+// splituser('user[:passwd]@host[:port]') --> 'user[:passwd]', 'host[:port]'.
+function splituser(host) export
+    res=re.match(host,"^(.*)@(.*)$");
+    return ?(res<>undefined,
+             pair(unquote(res[0]),unquote(res[1])),
+             pair(undefined,host)
+    );
+endfunction
+
+// splitpasswd('user:passwd') -> 'user', 'passwd'.
+function splitpasswd(user) export
+    res=re.match(user,"^([^:]*):(.*)$");
+    return ?(res<>undefined,res.groups,pair(user,undefined));
+endfunction
+
+// splitport('host:port') --> 'host', 'port'.
+function splitport(host) export
+    res=re.match(host,"^(.*):([0-9]+)$");
+    return ?(res<>undefined,res.groups,pair(host,undefined));
+endfunction
+
+//Split host and port, returning numeric port.
+//    Return given default port if no ':' found; defaults to -1.
+//    Return numerical port if a valid number are found after ':'.
+//    Return None if ':' but not a valid number.
+function splitnport(host,defport=-1) export
+    res=re.match("^(.*):(.*)$");
+    if res<>undefined then
+        port=res.groups[1];
+        try
+            if check.is_false(port) then
+                raise exception.ValueError("no digits");
+            endif;
+            nport=number(port);
+        except
+            nport=undefined;
+        endtry;
+        return pair(res.group[0],nport);
+    endif;
+    return pair(host,defport);
+endfunction
+
+// splitquery('/path?query') --> '/path', 'query'.
+function splitquery(url) export
+    res=re.match(url,"^(.*)\?([^?]*)$");
+    return ?(res<>undefined,res.groups,pair(url,undefined));
+endfunction
+
+// splittag('/path#tag') --> '/path', 'tag'.
+function splittag(url) export
+    res=re.match(url,"^(.*)#([^#]*)$");
+    return ?(res<>undefined,res.groups,pair(url,undefined));
+endfunction
+
+// splitattr('/path;attr1=value1;attr2=value2;...') ->
+//      '/path', ['attr1=value1', 'attr2=value2', ...]
+function splitattr(url) export
+    words=string.split(url,";");
+    path=words[0];
+    words.delete(0);
+    return pair(path,words);
+endfunction
+
+// splitvalue('attr=value') --> 'attr', 'value'
+function splitvalue(attr) export
+    res=re.match(attr,"^([^=]*)=(.*)$");
+    return ?(res<>undefined,res.groups,pair(attr,undefined));
+endfunction
+
+function urlunsplit(url) export
+    if not check.hasattr(url,"scheme,username,password,
+                             |host,port,path,anchorn") then
+        raise exception.ValueError("Invalid url structure given",new Structure("url",url));
+    endif;
+    res=url.scheme+":";
+    if url["username"]<>"" or url["host"]<>"" then
+        res=res+"//";
+        if url["username"]<>"" then
+            res=res+quote(url["username"],"");
+            if url["password"]<>"" then
+                res=res+":"+quote(url["password"],"");
+            endif;
+            res=res+"@";
+        endif;
+        if url["host"]<>"" then
+            res=res+quote(url["host"],"");
+            if url["port"]<>0 then
+                res=res+":"+convert.to_string(url["port"]);
+            endif;
+        endif;
+        res=res+"/";
+    endif;
+    if url["path"]<>"" then
+        res=res+quote(?(string.startswith(url["path"],"/"),
+                        mid(url["path"],2),
+                        url["path"]));
+    endif;
+    qs=query_encode(url["query"]);
+    if qs<>"" then
+        res=res+"?"+qs;
+    endif;
+    if url["anchorn"]<>"" then
+        res=res+"#"+quote(url["anchorn"],"");
+    endif;
+    return res;
+endfunction
+
+// Join a base URL and a possibly relative URL to form an absolute
+//    interpretation of the latter.
+function join(base,url) export
+    // Trivial case
+    if check.is_false(base) then
+        return url;
+    elsif check.is_false(url) then
+        return base;
+    endif;
+    //
+    if check.is_array_or_fixedarray(url) then
+        res=base;
+        for each part in url do
+            res=join(res,part);
+        enddo;
+        return res;
+    endif;
+    //
+    if not check.is_string(base) then
+        raise exception.TypeError("Base url must be string",new Structure("base,url",base,url));
+    endif;
+    if not check.is_string(url) then
+        raise exception.TypeError("Joined url must be string",new Structure("base,url",base,url));
+    endif;
+    //
+    schemas=undefined;
+    if metadata.commonmodules.find("cache")<>undefined then
+        schemas=cache.get("urllib.schemas");
+    endif;
+    if schemas=undefined then
+        schemas=new structure();
+        arr=array.create("ftp","hdl","prospero","http","imap","https","shttp",
+                         "rtsp","rtspu","sip","sips","mms","","sftp");
+        schemas.insert("uses_params",arr);
+        arr=array.create("gopher","hdl","mailto","news","telnet","wais","imap",
+                         "snews","sip","sips");
+        schemas.insert("non_hierarchical",arr);
+        arr=array.create("http","wais","imap","https","shttp","mms","gopher",
+                         "rtsp","rtspu","sip","sips","");
+        schemas.insert("uses_query",arr);
+        arr=array.create("ftp","http","gopher","nntp","telnet","imap","wais",
+                         "file","mms","https","shttp","snews","prospero","rtsp",
+                         "rtspu","rsync","","svn","svn+ssh","sftp","nfs");
+        schemas.insert("uses_netloc",arr);
+        arr=array.create("ftp","http","gopher","nntp","imap","wais","file","https",
+                         "shttp","mms","prospero","rtsp","rtspu","","sftp");
+        schemas.insert("uses_relative",arr);
+        arr=array.create("ftp","hdl","http","gopher","news","nntp","wais","https",
+                         "shttp","snews","file","prospero","");
+        schemas.insert("uses_fragment",arr);
+    endif;
+    if metadata.commonmodules.find("cache")<>undefined then
+        cache.set("urllib.schemas",schemas);
+    endif;
+    bstr=urlsplit(base); //base structure
+    jstr=urlsplit(url);  //join structure
+    if jstr.scheme="" then
+        jstr.scheme=bstr.scheme;
+    endif;
+    if bstr.scheme<>jstr.scheme 
+        or schemas["uses_relative"].find(jstr.scheme)=undefined then
+        return url;
+    endif;
+    if schemas["uses_netloc"].find(jstr.scheme)<>undefined then
+        if jstr.host<>"" then
+            return url;
+        endif;
+        jstr.username=bstr.username;
+        jstr.password=bstr.password;
+        jstr.host=bstr.host;
+        jstr.port=bstr.port;
+    endif;
+    if string.startswith(jstr.path,"/") then
+        return urlunsplit(jstr);
+    endif;
+    if jstr.path="" then
+        jstr.path=bstr.path;
+        if jstr.query.count()=0 then
+            jstr.query=bstr.query;
+        endif;
+        return urlunsplit(jstr);
+    endif;
+    segments=array.merge(
+                string.split(bstr.path,"/"),
+                string.split(jstr.path,"/")
+             );
+    if segments[segments.ubound()]="." then
+        segments[segments.ubound()]="";
+    endif;
+    while True do
+        pos=segments.find(".");
+        if pos=undefined then
+            break;
+        endif;
+        segments.delete(pos);
+    enddo;
+    while True do
+        i=1;
+        n=segments.ubound();
+        while i<n do
+            if segments[i]=".." 
+                and (segments[i-1]<>"" or segments[i-1]<>"..") then
+                segments.delete(i);
+                segments.delete(i-1);
+                break;
+            endif;
+            i=i+1;
+        enddo;
+        break;
+    enddo;
+    if segments.count()=2 and segments[0]="" and segments[1]=".." then
+        segments[1]="";
+    elsif segments.count()>=2 and segments[segments.ubound()]=".." then
+        segments.delete(segments.ubound());
+        segments.delete(segments.ubound());
+    endif;
+    jstr.path=string.join("/",segments);
+    return urlunsplit(jstr);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function query_encode(q) export
+    res="";
+    for each p in q do
+        res=res+"&"+quote(p.key,"");
+        if typeof(p.value)=type("boolean") then
+            res=res+"="+lower(quote(p.value,""));
+        elsif typeof(p.value)=type("array") then
+            for each item in p.value do
+                s=s+"[]="+lower(quote(p.value,""));
+            enddo;
+        else
+            s=s+"="+quote(p.value,"");
+        endif;
+    enddo;
+    return mid(res,2);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//quote('abc def') -> 'abc%20def'
+//
+//    Each part of a URL, e.g. the path info, the query, etc., has a
+//    different set of reserved characters that must be quoted.
+//
+//    RFC 2396 Uniform Resource Identifiers (URI): Generic Syntax lists
+//    the following reserved characters.
+//
+//    reserved    = ";" | "/" | "?" | ":" | "@" | "&" | "=" | "+" |
+//                  "$" | ","
+//
+//    Each of these characters is reserved in some component of a URL,
+//    but not necessarily in all of them.
+//
+//    By default, the quote function is intended for quoting the path
+//    section of a URL.  Thus, it will not encode '/'.  This character
+//    is reserved, but in typical usage the quote function is being
+//    called on a path where the existing slash characters are used as
+//    reserved characters.
+//
+function quote(s,safe="/") export
+    always_safe="ABCDEFGHIJKLMNOPQRSTUVWXYZ
+                |abcdefghijklmnopqrstuvwxyz
+                |0123456789_.-";
+    l=strlen(convert.to_string(s));
+    res="";
+    for i=1 to l do
+        c=mid(s,i,1);
+        if find(always_safe,c)<>0 or c=safe then
+            res=res+c;
+        else
+            cc=charcode(c);
+            if cc<128 then
+                res=res+convert.to_hex(cc,"%");
+            elsif cc>127 and cc<2048 then
+                // res += hex((cc >> 6) | 192);
+                //res=res+num(cc).rshift(6).or_(192).to_hex("%").dispatch();
+                res=res+convert.to_hex(math.or_(math.rshift(cc,6),192),"%");
+                // res += hex((cc & 63) | 128);
+                //res=res+num(cc).and_(63).or_(128).to_hex("%").dispatch();
+                res=res+convert.to_hex(math.or_(math.and_(cc,63),128),"%");
+            else
+                // res += hex((cc >> 12) | 224);
+                //res=res+num(cc).rshift_(12).or_(224).to_hex("%").dispatch();
+                res=res+convert.to_hex(math.or_(math.rshift(cc,12),224),"%");
+                // res += hex(((cc >> 6) & 63) | 128);
+                //res=res+num(cc).rshift_(6).and_(63).or_(128).to_hex("%").dispatch();
+                res=res+convert.to_hex(math.or_(math.and_(math.rshift(cc,6),63),128),"%");
+                // res += hex((cc & 63) | 128);
+                ////res=res+num(cc).and_(63).or_(128).to_hex("%").dispatch();
+                res=res+convert.to_hex(math.or_(math.and_(cc,63),128),"%");
+            endif;
+        endif;
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//unquote('abc%20def') -> 'abc def'
+function unquote(s) export
+    res=string.split(s,"%");
+    l=res.ubound();
+    for i=1 to l do
+        item=res[i];
+        res[i]=char(convert.to_dec("0x"+mid(item,1,2)))+mid(item,3);
+    enddo;
+    return string.utf8decode(string.join("",res));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+// unquote('%7e/abc+def') -> '~/abc def'
+function unquote_plus(s) export
+    return unquote(strreplace(s,"+"," "));
+endfunction

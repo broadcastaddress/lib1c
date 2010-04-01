@@ -1,0 +1,44 @@
+﻿function init()
+    cache_storage=new Map();
+endfunction
+
+function get(k) export
+    #if NOT CLIENT then
+        return undefined;
+    #else
+        try
+            return cache_storage.get(k);
+        except
+            return undefined;
+        endtry;
+    #endif
+endfunction
+
+function set(k,v) export
+    #if NOT CLIENT then
+        return false;
+    #else
+        try
+            if cache_storage=undefined then
+                init();
+            endif;
+            cache_storage.insert(k,v);
+            return true;
+        except
+            return false;
+        endtry;
+    #endif
+endfunction
+
+function del(k) export
+    #if NOT CLIENT then
+        return false;
+    #else
+        try
+            cache_storage.delete(k);
+            return true;
+        except
+            return false;
+        endtry;
+    #endif
+endfunction

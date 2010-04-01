@@ -1,0 +1,373 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+//  Модуль работы с регулярными выражениями на основе VBScript.RegExp
+//  За более подробной информацией лучше обратиться сюда:
+//      http://www.regular-expressions.info/vbscript.html
+//
+//  Совет: лучше не использовать регулярки там, где нужно выполнить простой
+//  поиск/проверку или где важна скорость. Однако, это не значит, что
+//  регулярки - зло. Куда большее зло разбираться в функции посимвольного
+//  разбора email или телефонов и думать где же там ошибка.
+//  Мораль: всякому инструменту свое место.
+/////////////////////////////////////////////////////////////////////////////
+
+function init()
+    regex_object=new COMObject("VBScript.RegExp");
+    cache.set("regex_object",regex_object);
+    return regex_object;
+endfunction
+
+function compile(obj,pattern,delimeter="/")
+//  pattern может содежать в себе модификаторы поиска:
+//      /.../i - нечувствительность к регистру
+//      /.../g - жадный поиск
+//      /.../m - поиск производится на всех строках text
+//  Модификаторы могут комбинироваться, например:
+//      /.../ig
+//  По умолчанию, все модификаторы выключены и шаблон регулярного
+//  выражения не нужно оборачивать в /
+    if mid(pattern,1,1)=delimeter then
+        l=strlen(pattern);
+        while l>1 do
+            c=mid(pattern,l,1);
+            l=l-1;
+            if c=delimeter then
+                break;
+            elsif c="g" then
+                obj.global=true;
+            elsif c="i" then
+                obj.ignorecase=true;
+            elsif c="m" then
+                obj.multiline=true;
+            else
+                raise exception.ValueError("Unrecognized flag `"+c+"`.
+                      |Supports only for `i`,`m`,`g` flags",
+                      new Structure("pattern,delimeter",pattern,delimeter));
+            endif;
+        enddo;
+        pl=strlen(pattern);
+        obj.pattern=mid(pattern,2,pl-(pl-l)-1);
+    else
+        obj.pattern=pattern;
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function findall(text,pattern)
+//  Возвращает все вхождения pattern в text.
+//  
+//    Параметры:
+//         text <string> -- текст, в котором будет производиться поиск.
+//      pattern <string> -- шаблон регулярного выражения.
+//
+//    Возвращает:
+//      <array>
+//
+//    Исключения:
+//           TypeError -- ошибка переданных параметров
+//          ValueError -- ошибка в составлении pattern
+//      COMObjectError -- ошибка объекта VBScript.RegExp
+//
+//    Описание:
+//      Всегда работает в режиме жадного поиска g
+//
+function findall(text,pattern) export
+    regex_object=cache.get("regex_object");
+    if regex_object=undefined then
+        regex_object=init();
+    endif;
+    if not check.is_string(text) then
+        raise exception.TypeError();
+    endif;
+    if not check.is_string(pattern) then
+        raise exception.TypeError();
+    endif;
+    compile(regex_object,pattern);
+    regex_object.global=true;
+    try
+        result=regex_object.execute(text);
+    except
+        raise exception.COMObjectError(
+            errorinfo().description,
+            new Structure("text,pattern",text,pattern)
+        );
+    endtry;
+    matches=new Array();
+    for each item in result do
+        if item.submatches.count()=0 then
+            matches.add(item.value);
+        else
+            submatch=new Array();
+            for each value in item.submatches do
+                submatch.add(value);
+            enddo;
+            matches.add(?(submatch.count()=1,submatch[0],submatch));
+        endif;
+    enddo;
+    return matches;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function match(text,pattern,start=1,end=undefined)
+//  Производит соответствие pattern и text начиная с позиции start по end.
+//  
+//    Параметры:
+//         text <string> -- текст, в котором будет производиться поиск.
+//      pattern <string> -- шаблон регулярного выражения.
+//        start <number> -- начальная позиция поиска.
+//          end <number> -- конечная позиция поиска.
+//
+//    Возвращает:
+//      <undefined>,<structure>
+//
+//    Исключения:
+//           TypeError -- ошибка переданных параметров
+//          ValueError -- ошибка в составлении pattern
+//      COMObjectError -- ошибка объекта VBScript.RegExp
+//
+//    Описание:
+//      В случае соответсвия pattern в text, возвращает структуру с полями:
+//           string <string> -- найденная подстрока
+ //          groups  <array> -- найденные подгруппы
+//            start <number> -- начальная позиция подстроки в text
+//              end <number> -- конечная позиция подстроки в text
+//           length <number> -- длинна найденной подстроки
+//          pattern <string> -- шаблон поиска
+//      В противном случае возвращает <undefined>.
+//
+//      Не учитывает модификатор жадного поиска g
+//
+function match(text,pattern,pos=1,endpos=undefined) export
+    regex_object=cache.get("regex_object");
+    if regex_object=undefined then
+        regex_object=init();
+    endif;
+    regex_object.pattern=100;
+    //
+    if not check.is_string(text) then
+        raise exception.TypeError();
+    endif;
+    if not check.is_string(pattern) then
+        raise exception.TypeError();
+    endif;
+    if not check.is_number(pos) then
+        raise exception.TypeError();
+    endif;
+    if mid(pattern,0,1)<>"^" then
+        pattern="^"+pattern;
+    endif;
+    compile(regex_object,pattern);
+    regex_object.global=false;
+    textslice=?(pos>1 or endpos<>undefined,
+            ?(endpos=undefined,
+                mid(text,pos),
+                mid(text,pos,endpos)),
+            text);
+    try
+        result=regex_object.execute(textslice);
+    except
+        raise exception.COMObjectError(
+            errorinfo().description,
+            new Structure("text,pattern",text,pattern)
+        );
+    endtry;
+    if result.count()=0 then
+        return undefined;
+    endif;
+    res=new Structure();
+    res.insert("string",text);
+    res.insert("group",new Array);
+    res.insert("start",0);
+    res.insert("end",0);
+    res.insert("length",0);
+    res.insert("pattern",pattern);
+    for each match in result do
+        res.group.add(match.value);
+        res.start=match.firstIndex+pos;
+        res.end=match.firstIndex+match.length+pos;
+        res.length=match.length;
+        for each submatch in match.submatches do
+            res.group.add(submatch);
+        enddo;
+        break;
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function search(text,pattern)
+//  Производит поиск pattern в text с любой позиции
+//  
+//    Параметры:
+//         text <string> -- текст, в котором будет производиться поиск.
+//      pattern <string> -- шаблон регулярного выражения.
+//
+//    Возвращает:
+//      <undefined>,<structure>
+//
+//    Исключения:
+//           TypeError -- ошибка переданных параметров
+//          ValueError -- ошибка в составлении pattern
+//      COMObjectError -- ошибка объекта VBScript.RegExp
+//
+//    Описание:
+//      В случае нахождения pattern в text, возвращает структуру с полями:
+//           string <string> -- найденная подстрока
+ //          groups  <array> -- найденные подгруппы
+//            start <number> -- начальная позиция подстроки в text
+//              end <number> -- конечная позиция подстроки в text
+//           length <number> -- длинна найденной подстроки
+//          pattern <string> -- шаблон поиска
+//      В противном случае возвращает <undefined>.
+//
+//      Не учитывает модификатор жадного поиска g
+//
+function search(text,pattern) export
+    regex_object=cache.get("regex_object");
+    if regex_object=undefined then
+        regex_object=init();
+    endif;
+    if not check.is_string(text) then
+        raise exception.TypeError(
+            "Argument 1 (text) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
+    endif;
+    if not check.is_string(pattern) then
+        raise exception.TypeError(
+            "Argument 2 (pattern) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
+    endif;
+    compile(regex_object,pattern);
+    regex_object.global=false;
+    try
+        result=regex_object.execute(text);
+    except
+        raise exception.COMObjectError(
+            errorinfo().description,
+            new Structure("text,pattern",text,pattern)
+        );
+    endtry;
+    if result.count()=0 then
+        return undefined;
+    endif;
+    res=new Structure();
+    res.insert("string",text);
+    res.insert("group",new Array);
+    res.insert("start",0);
+    res.insert("end",0);
+    res.insert("length",0);
+    res.insert("pattern",pattern);
+    for each match in result do
+        res.group.add(match.value);
+        res.start=match.firstIndex+1;
+        res.end=match.firstIndex+match.length+1;
+        res.length=match.length;
+        for each submatch in match.submatches do
+            res.group.add(submatch);
+        enddo;
+        break;
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function replace(text,pattern,replace_by)
+//  Заменяет в text шаблон pattern на replace_by.
+//  
+//    Параметры:
+//            text <string> -- текст, в котором будет производиться замена.
+//         pattern <string> -- шаблон регулярного выражения.
+//      replace_by <string> -- на что будет заменен шаблон.
+//
+//    Возвращает:
+//      <string>
+//
+//    Исключения:
+//           TypeError -- ошибка переданных параметров
+//          ValueError -- ошибка в составлении pattern
+//      COMObjectError -- ошибка объекта VBScript.RegExp
+//
+function replace(text,pattern,replace_by) export
+    regex_object=cache.get("regex_object");
+    if regex_object=undefined then
+        regex_object=init();
+    endif;
+    if not check.is_string(text) then
+        raise exception.TypeError(
+            "Argument 1 (text) must be string type",
+            new Structure("text,pattern,replace_by",text,pattern,replace_by)
+        );
+    endif;
+    if not check.is_string(pattern) then
+        raise exception.TypeError(
+            "Argument 2 (pattern) must be string type",
+            new Structure("text,pattern,replace_by",text,pattern,replace_by)
+        );
+    endif;
+    if not check.is_string(replace_by) then
+        raise exception.TypeError(
+            "Argument 3 (replace_by) must be string type",
+            new Structure("text,pattern,replace_by",text,pattern,replace_by)
+        );
+    endif;
+    compile(regex_object,pattern);
+    try
+        return regex_object.Replace(text,replace_by);
+    except
+        raise exception.COMObjectError(
+            errorinfo().description,
+            new Structure("text,pattern,replace_by",text,pattern,replace_by)
+        );
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function test(text,pattern)
+//  Возвращает True в случае наличия pattern в text, False в обратном.
+//  
+//    Параметры:
+//         text <string> -- текст, в котором будет производиться поиск.
+//      pattern <string> -- шаблон регулярного выражения.
+//
+//    Возвращает:
+//      <boolean>
+//
+//    Исключения:
+//           TypeError -- ошибка переданных параметров
+//          ValueError -- ошибка в составлении pattern
+//      COMObjectError -- ошибка объекта VBScript.RegExp
+//
+function test(text,pattern) export
+    regex_object=cache.get("regex_object");
+    if regex_object=undefined then
+        regex_object=init();
+    endif;
+    if not check.is_string(text) then
+        raise exception.TypeError(
+            "Argument 1 (text) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
+    endif;
+    if not check.is_string(pattern) then
+        raise exception.TypeError(
+            "Argument 2 (pattern) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
+    endif;
+    compile(regex_object,pattern);
+    try
+        return regex_object.test(text);
+    except
+        raise exception.COMObjectError(
+            errorinfo().description,
+            new Structure("text,pattern",text,pattern)
+        );
+        return False;
+    endtry;
+endfunction

@@ -1,0 +1,121 @@
+﻿//function cmp(a,b,deep=False)
+//    Сравнивает два значения и возвращает коэфициент их разности
+//
+//    Параметры:
+//         a     <any> -- любое значение
+//         b     <any> -- любое значение
+//      deep <boolean> -- правила сравнения
+//
+//    Возвращает:
+//        0 если a = b
+//        1 если a > b
+//       -1 если a < b
+//
+//    Описание:
+//      По умолчанию, в режиме strict=False, производится сравнение
+//      стандартным алгоритмом 1С, для которого разные объекты,
+//      содержащие одинаковые данные не могут быть равны - это
+//      не совсем удобно для сравнения массивов.
+//      В режиме deep=True сравниваются не сами значения, а их сериализация
+//      с помощью xmlstring метода. Однако, приоритет отдается тому, у кого
+//      строка больше.
+function cmp(a,b,deep=False) export
+    if not deep then
+        return ?(a=b,0,?(a>b,1,-1));
+    else
+        tval=typeof(a);
+        if tval=typeof(b) then
+            if tval=type("string") or tval=type("number") or tval=type("date")
+                or tval=type("boolean") or a=undefined or a=null then
+                    return ?(a=b,0,?(a>b,1,-1));
+            endif;
+        endif;
+        // a little hack for other types.
+        x=xmlstring(new valuestorage(a));
+        y=xmlstring(new valuestorage(b));
+        // By theory, there is some chance to get invalid result
+        // but it's too small and had been never seen before
+        return ?(x=y,0,?(x>y,1,-1));
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function getattr(expr,attr,default=undefined) export
+endfunction
+
+function setattr(expr,attr,value) export
+endfunction
+
+function delattr(expr,attr) export
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function range(lbound,ubound,step=1)
+//    Возвращает набор элементов с lbound по ubound с шагом step.
+//
+//    Параметры:
+//        lbound -- начало последовательности <number>
+//        ubound -- конец последовательности <number>
+//          step -- шаг <number>
+//
+//    Возвращает:
+//        <array>
+//
+//    Описание:
+//    Возвращает массив элементов, где lbound <= arr[i] < ubound,
+//    где arr[i] меняется с шагом step.
+function range(lbound,ubound,step=1) export
+    assert.is_number(lbound);
+    assert.is_number(ubound);
+    assert.is_number(step);
+    res=new Array();
+    walker=?(step=0,1,step);
+    preq=walker>0;
+    value=lbound;
+    while True do
+        if (preq and value>=ubound) or (not preq and value<=ubound) then
+            break;
+        endif;
+        res.add(value);
+        value=value+walker;
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+// temp function
+function pair(a,b) export
+    arr=new Array();
+    arr.add(a);
+    arr.add(b);
+    return arr;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function repeat(item,count=1)
+//    Возвращет массив элементов item, повторяющихся count раз.
+//
+//    Параметры:
+//         item -- любое значение <any>
+//        count -- число повторений <number>
+//
+//    Возвращает:
+//        <array>
+//
+function repeat(item,count=1) export
+    assert.is_number(count);
+    assert.is_greater(count,0);
+    res=new Array();
+    for i=1 to count do
+        res.add(item);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+

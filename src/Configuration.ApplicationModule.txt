@@ -1,0 +1,6 @@
+﻿var cache_storage export;
+
+Procedure OnStart()
+    
+EndProcedure
+

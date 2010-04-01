@@ -1,0 +1,132 @@
+﻿/////////////////////////////////////////////////////////////////////////////
+// DISCLAMER:
+// This is adapted port of Resource class of `couchdb-python` project
+// http://code.google.com/p/couchdb-python/
+// Author: Christopher Lenz
+//
+/////////////////////////////////////////////////////////////////////////////
+
+var _url export;
+var _headers export;
+var _session;
+
+/////////////////////////////////////////////////////////////////////////////
+
+function init(url,session=undefined,headers=undefined) export
+    if not check.is_string(url) then
+        raise exception.TypeError(
+            "Argument 1 must be string.",
+            new Structure("url,session,headers",url,session,headers)
+        );
+    endif;
+    _url=url;
+    if session=undefined then
+        session=self.Session();
+    endif;
+    _session=session;
+    _headers=?(headers<>undefined and check.is_map(headers),headers,new map());
+    return thisform;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function copy(path=undefined) export
+    obj=self.Resource(urllib.join(_url,path),_session,_headers);
+    return obj;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function delete(path=undefined,headers=undefined,params=undefined) export
+    return _request("DELETE",path,undefined,headers,params);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function get(path=undefined,headers=undefined,params=undefined) export
+    return _request("GET",path,undefined,headers,params);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function head(path=undefined,headers=undefined,params=undefined) export
+    return _request("HEAD",path,undefined,headers,params);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function post(path=undefined,body=undefined,headers=undefined,
+              params=undefined) export
+    return _request("POST",path,body,headers,params);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put(path=undefined,body=undefined,headers=undefined,
+             params=undefined) export
+    return _request("PUT",path,body,headers,params);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function delete_json(path=undefined,headers=undefined,
+                     params=undefined) export
+    resp=thisform.delete(path,headers,params);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function get_json(path=undefined,headers=undefined,params=undefined) export
+    resp=thisform.get(path,headers,params);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function post_json(path=undefined,body=undefined,headers=undefined,
+                   params=undefined) export
+    resp=thisform.post(path,body,headers,params);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put_json(path=undefined,body=undefined,headers=undefined,
+                  params=undefined) export
+    resp=thisform.put(path,body,headers,params);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _request(method,path=undefined,body=undefined,val headers=undefined,
+                  params=undefined)
+    if headers<>undefined then
+        if not check.is_map(headers) then
+            raise exception.TypeError(
+                "Invalid type of 4th argument(headers).Map expected",
+                new Structure("method,path,body,headers,params",
+                               method,path,body,headers,params)
+            );
+        endif;
+        for each item in _headers do
+            headers.insert(item.key,item.value);
+        enddo;
+    else
+        headers=_headers;
+    endif;
+    return _session.request(method,urllib.join(_url,path),body,headers);
+endfunction
