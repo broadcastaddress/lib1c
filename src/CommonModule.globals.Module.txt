@@ -1,4 +1,13 @@
-﻿//function cmp(a,b,deep=False)
+﻿function assert(expr,msg="",env=undefined) export
+    if not expr then
+        raise exception.AssertError(msg,env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function cmp(a,b,deep=False)
 //    Сравнивает два значения и возвращает коэфициент их разности
 //
 //    Параметры:

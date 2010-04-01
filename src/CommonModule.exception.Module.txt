@@ -1,4 +1,4 @@
-﻿function Exception(type,msg,env) export
+﻿function Exception(type,msg,env)
     if not check.is_string(type) then
         raise exception.TypeError("argument 1 (type) must be string",
                                   new Structure("type,msg,env",type,msg,env));
@@ -35,76 +35,82 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function AttributeError(msg=undefined,env=undefined) export
+function AssertError(msg="",env=undefined) export
+    return BaseException("AssertError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function AttributeError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"attribute reference or assignment error");
     return BaseException("AttributeError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function COMObjectError(msg=undefined,env=undefined) export
+function COMObjectError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"unknown exception of COMObject");
     return BaseException("COMObjectError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function IndexError(msg=undefined,env=undefined) export
+function IndexError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"invalid index or index is out of range");
     return BaseException("IndexError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function KeyError(msg=undefined,env=undefined) export
+function KeyError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"invalid key name or key not found");
     return BaseException("KeyError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function NameError(msg=undefined,env=undefined) export
+function NameError(msg="",env=undefined) export
     
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function NotImplementedError(msg=undefined,env=undefined) export
+function NotImplementedError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"feature is not implemented yet");
     return BaseException("NotImplementedError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function OverflowError(msg=undefined,env=undefined) export
+function OverflowError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"value overflow");
     return BaseException("OverflowError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function PermissionError(msg=undefined,env=undefined) export
+function PermissionError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"you have no permission for such operation");
     return BaseException("PermissionError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function TransactionError(msg=undefined,env=undefined) export
+function TransactionError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"transaction was aborted");
     return BaseException("TransactionError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function TypeError(msg=undefined,env=undefined) export
+function TypeError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"invalid value type");
     return BaseException("TypeError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function ValueError(msg=undefined,env=undefined) export
+function ValueError(msg="",env=undefined) export
     msg=?(check.is_true(msg),msg,"invalid value given");
     return BaseException("ValueError",msg,env);
 endfunction
