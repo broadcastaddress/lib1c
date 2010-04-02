@@ -1,57 +1,83 @@
 ﻿function base64encode(s) export
     b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-    enc="";
-    tmp_arr=new Array();
+    res="";
     if s="" then
         return s;
     endif;
     data=utf8encode(s);
     l=strlen(data);
     i=1;
+    ox=new Array(3);
     while True do
-        o1=charcode(mid(data,i,1));
-        i=i+1;
-        o2=charcode(mid(data,i,1));
-        i=i+1;
-        o3=charcode(mid(data,i,1));
-        i=i+1;
-        if o1=-1 then
-            o1=o1+1;
-        endif;
-        if o2=-1 then
-            o2=o2+1;
-        endif;
-        if o3=-1 then
-            o3=o3+1;
-        endif;
+        ci=i;
+        for i=i to i+2 do
+            t=charcode(mid(data,i,1));
+            ox.set(i-ci,?(t=-1,0,t));
+        enddo;
         bits=math.or_(
                 math.or_(
-                    math.lshift(o1,16),
-                    math.lshift(o2,8)
+                    math.lshift(ox[0],16),
+                    math.lshift(ox[1],8)
                 ),
-                o3);
+                ox[2]);
         h1=math.and_(math.rshift(bits,18),"0x3f");
         h2=math.and_(math.rshift(bits,12),"0x3f");
         h3=math.and_(math.rshift(bits,6),"0x3f");
         h4=math.and_(bits,"0x3f");
         chunk=mid(b64,h1+1,1)+mid(b64,h2+1,1)+mid(b64,h3+1,1)+mid(b64,h4+1,1);
-        tmp_arr.add(chunk);
+        res=res+chunk;
         if i>l then
             break;
         endif;
     enddo;
-    enc=string.join("",tmp_arr);
     if l%3=1 then
-        enc=string.slice(enc,0,-2)+"==";
+        res=string.slice(res,0,-2)+"==";
     elsif l%3=2 then
-        enc=string.slice(enc,0,-1)+"=";
+        res=string.slice(res,0,-1)+"=";
     endif;
-    return enc;
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function base64decode(s) export
+    b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    i=1;
+    res="";
+    if s="" then
+        return s;
+    endif;
+    hx=new Array(4);
+    l=strlen(s);
+    while True do
+        ci=i;
+        for i=i to i+3 do
+            h=find(b64,mid(s,i,1));
+            hx.set(i-ci,?(h=-1,0,h-1));
+        enddo;
+        bits=math.or_(
+                math.or_(
+                    math.or_(
+                        math.lshift(hx[0],18),
+                        math.lshift(hx[1],12)
+                    ),
+                    math.lshift(hx[2],6)),
+                hx[3]);
+        o1=math.and_(math.rshift(bits,16),"0xff");
+        o2=math.and_(math.rshift(bits,8),"0xff");
+        o3=math.and_(bits,"0xff");
+        if hx[2]=64 then
+            res=res+char(o1);
+        elsif hx[3]=64 then
+            res=res+char(o1)+char(o2);
+        else
+            res=res+char(o1)+char(o2)+char(o3);
+        endif;
+        if i>l then
+            break;
+        endif;
+    enddo;
+    return utf8decode(res);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -94,7 +120,7 @@ function dpa(s1,s2) export
             if mid(s1,i-1,1)<>mid(s2,j-1,1) then
                 diag=diag+1;
             endif;
-            m[i][j]=min(diag,                // match or change
+            m[i][j]=min(diag,               // match or change
                         min(m[i-1][j]+1,    // deletion
                             m[i][j-1]+1)    // insertion
                     );
@@ -511,7 +537,7 @@ function ljust(s,size,chr=" ") export
         raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
     endif;
     if not check.is_string(chr) then
-        msg="argument 3 (chr) must be string";
+        msg="argument 3 (chr) must be single char of string";
         raise exception.TypeError(msg,new Structure("s,size,chr",s,size,chr));
     endif;
     if strlen(chr)>1 then
@@ -589,14 +615,15 @@ function utf8decode(s) export
             i=i+1;
         elsif cc>191 and cc<224 then
             cc2=charcode(mid(s,i+1,1));
-            // ((c1 & 31) << 6) | (c2 & 63)
             res=res+char(math.or_(math.lshift(math.and_(cc,31),6),math.and_(cc2,63)));
             i=i+2;
         else
             cc2=charcode(mid(s,i+1,1));
             cc3=charcode(mid(s,i+2,1));
-            //((c1 & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63)
-            res=res+char(math.or_(math.or_(math.lshift(math.and_(cc,15),12),math.lshift(math.and_(cc2,63),6)),math.and_(cc3,63)));
+            a=math.lshift(math.and_(cc,15),12);
+            b=math.lshift(math.and_(cc2,63),6);
+            c=math.and_(cc3,63);
+            res=res+char(math.or_(math.or_(a,b),c));
             i=i+3;
         endif;
     enddo;
