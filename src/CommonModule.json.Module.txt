@@ -186,18 +186,15 @@ function scanstring(s,i)
         c=mid(s,pos,1);
         // bottle neck below
         while pos<=ls and not (c="""" or c="\" or charCode(c)<32) do
-            pos=pos+1;
-            c=mid(s,pos,1);
+            pos=pos+1;c=mid(s,pos,1);
         enddo;
-        terminator=?(pos=i,undefined,c);
-        if terminator=undefined then
+        terminator=c;
+        if terminator="" then
             raise exception.ValueError(
                     errmsg("Unterminated string starting at", s, begin));
         endif;
         end=pos+1;
         content=mid(s,i,pos-i);
-        terminator=terminator;
-        // so let's think how to do this better!
         if content<>"" then
             chunks.add(content);
         endif;
@@ -229,15 +226,10 @@ function scanstring(s,i)
             endif;
             end=end+1;
         else
-            raise exception.NotImplementedError("not tested yet");
-            //
             esc=convert.to_dec("0x"+mid(s,end+1,4));
             next_end=end+5;
-            msg="Invalid \\uXXXX escape";
+            msg="Invalid \uXXXX escape";
             try
-                if strlen(esc)<>4 then
-                    raise "ValueError";
-                endif;
                 uni=esc;
                 if 55296<=esc and esc<=56319 then
                     msg="Invalid \\uXXXX\\uXXXX surrogate pair";
