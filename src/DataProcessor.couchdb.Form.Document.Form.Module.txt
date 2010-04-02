@@ -18,16 +18,18 @@ endfunction
 function init(schema=undefined) export
     _schema=new map();
     _data=new map();
-    if check.is_structure_or_map(schema) then
+    if schema=undefined then
+        return thisform;
+    elsif check.is_structure_or_map(schema) then
         for each item in schema do
             assert.is_string(item.key,"couchdb.Document","string required");
             _schema.insert(item.key,undefined);
         enddo;
-        return thisform; // <- breakpoint
+        return thisform;
     else
         metainfo=?(typeof(schema)=type("metadataobject"),
                    schema,
-                   metadata.findbytype(schema));
+                   metadata.findbytype(typeof(schema)));
     endif;
     if metainfo=undefined then
         raise exception.TypeError("Invalid schema description");
@@ -126,6 +128,9 @@ function store(db=undefined) export
     if db=undefined then
         raise exception.NotImplementedError();
     else
+        if not check.hasattr(_data,"_id") then
+            _data.insert("_id",string(new UUID()));
+        endif;
         db.set(_data["_id"],_data);
     endif;
 endfunction
