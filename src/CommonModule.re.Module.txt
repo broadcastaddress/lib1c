@@ -77,10 +77,16 @@ function findall(text,pattern) export
         regex_object=init();
     endif;
     if not check.is_string(text) then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "Argument 1 (text) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
     endif;
     if not check.is_string(pattern) then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "Argument 2 (pattern) must be string type",
+            new Structure("text,pattern",text,pattern)
+        );
     endif;
     compile(regex_object,pattern);
     regex_object.global=true;
@@ -146,13 +152,28 @@ function match(text,pattern,pos=1,endpos=undefined) export
     regex_object.pattern=100;
     //
     if not check.is_string(text) then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "Argument 1 (text) must be string type",
+            new Structure("text,pattern,pos",text,pattern,pos)
+        );
     endif;
     if not check.is_string(pattern) then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "Argument 2 (pattern) must be string type",
+            new Structure("text,pattern,pos",text,pattern,pos)
+        );
     endif;
     if not check.is_number(pos) then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "Argument 3 (pos) must be number type",
+            new Structure("text,pattern,pos",text,pattern,pos)
+        );
+    endif;
+    if endpos<>undefined and not check.is_number(endpos) then
+        raise exception.TypeError(
+            "Argument 3 (pos) must be number type",
+            new Structure("text,pattern,pos",text,pattern,pos)
+        );
     endif;
     if mid(pattern,0,1)<>"^" then
         pattern="^"+pattern;
