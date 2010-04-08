@@ -542,20 +542,20 @@ function quote(s,safe="/") export
             elsif cc>127 and cc<2048 then
                 // res += hex((cc >> 6) | 192);
                 //res=res+num(cc).rshift(6).or_(192).to_hex("%").dispatch();
-                res=res+convert.to_hex(math.or_(math.rshift(cc,6),192),"%");
+                res=res+convert.to_hex(bitwise.or_(bitwise.rshift(cc,6),192),"%");
                 // res += hex((cc & 63) | 128);
                 //res=res+num(cc).and_(63).or_(128).to_hex("%").dispatch();
-                res=res+convert.to_hex(math.or_(math.and_(cc,63),128),"%");
+                res=res+convert.to_hex(bitwise.or_(bitwise.and_(cc,63),128),"%");
             else
                 // res += hex((cc >> 12) | 224);
                 //res=res+num(cc).rshift_(12).or_(224).to_hex("%").dispatch();
-                res=res+convert.to_hex(math.or_(math.rshift(cc,12),224),"%");
+                res=res+convert.to_hex(bitwise.or_(bitwise.rshift(cc,12),224),"%");
                 // res += hex(((cc >> 6) & 63) | 128);
                 //res=res+num(cc).rshift_(6).and_(63).or_(128).to_hex("%").dispatch();
-                res=res+convert.to_hex(math.or_(math.and_(math.rshift(cc,6),63),128),"%");
+                res=res+convert.to_hex(bitwise.or_(bitwise.and_(bitwise.rshift(cc,6),63),128),"%");
                 // res += hex((cc & 63) | 128);
                 ////res=res+num(cc).and_(63).or_(128).to_hex("%").dispatch();
-                res=res+convert.to_hex(math.or_(math.and_(cc,63),128),"%");
+                res=res+convert.to_hex(bitwise.or_(bitwise.and_(cc,63),128),"%");
             endif;
         endif;
     enddo;

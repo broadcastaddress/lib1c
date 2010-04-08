@@ -1,25 +1,26 @@
 ﻿function rc4(s,k) export
-    if not check.is_string(s) then
-        raise exception.TypeError("Argument 1 (s) must be string",
-                                  new Structure("s,k",s,k));
-    endif;
-    if not check.is_string(k) then
-        raise exception.TypeError("Argument 2 (k) must be string",
-                                  new Structure("s,k",s,k));
-    endif;
+    try
+        l=strlen(k);
+    except
+        msg="Argument 2 (k) must be string";
+        raise exception.TypeError(msg,new Structure("s,k",s,k));
+    endtry;
     x=1;
     res="";
     box=range(0,255);
-    l=strlen(k);
     for each i in range(0,255) do
         x=(x+box[i]+charcode(mid(k,i%l)))%256;
         t=box[i];
         box[i]=box[x];
         box[x]=t;
     enddo;
-    x=0;
-    y=0;
-    l=strlen(s);
+    try
+        l=strlen(s);
+    except
+        msg="Argument 1 (s) must be string";
+        raise exception.TypeError(msg,new Structure("s,k",s,k));
+    endtry;
+    x=0;y=0;
     for i=1 to l do
         cc=charcode(mid(s,i,1));
         x=(x+1)%256;
@@ -27,7 +28,7 @@
         t=box[y];
         box[y]=box[x];
         box[x]=t;
-        res=res+(char(math.xor(cc,box[(box[x]+box[y])%256])));
+        res=res+char(convert.to_dec(bitwise.xor(cc,box[(box[x]+box[y])%256])));
     enddo;
     return res;
 endfunction

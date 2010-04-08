@@ -240,7 +240,8 @@ function scanstring(s,i)
                     if strlen(esc2)<>4 then
                         raise "ValueError";
                     endif;
-                    uni=65536+math.or_(math.lshift(esc-55296,10),esc2-56320);
+                    t=bitwise.or_(bitwise.lshift(esc-55296,10),esc2-56320);
+                    uni=65536+convert.to_dec(t);
                     next_end=next_end+6;
                 endif;
                 m=char(uni);
@@ -370,10 +371,8 @@ endfunction
 function skip_ws(s,pos)
     // used instead of regexp for speedup
     w=chars.cr+chars.lf+chars.vtab+chars.tab+chars.nbsp;
-    c=mid(s,pos,1);
-    while find(w,c)<>0 do
+    while find(w,mid(s,pos,1))<>0 do
         pos=pos+1;
-        c=mid(s,pos,1);
     enddo;
     return pos;
 endfunction

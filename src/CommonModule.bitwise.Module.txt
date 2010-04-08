@@ -1,19 +1,4 @@
-﻿//function abs(n)
-//    Возвращает модуль числа n
-//
-//    Параметры:
-//        n -- число, <number>
-//
-//    Возвращает:
-//        <number>
-function abs(n) export
-    assert.is_number(n);
-    return ?(n>0,n,-n);
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-//function and_(a,b)
+﻿//function and_(val a,val b)
 //    Реализует операцию побитового И для значений a и b.
 //
 //    Параметры:
@@ -22,14 +7,26 @@ endfunction
 //                или же бинарный массив как <array>,<fixedarray>
 //
 //    Возвращает:
-//        <number>
-function and_(a,b) export
-    return convert.to_dec(bitwise.and_(a,b));
+//        <binaryArray>
+function and_(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an and bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0] and b[0]);
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function or_(a,b)
+//function or_(val a,val b)
 //    Реализует операцию побитового ИЛИ для значений a и b.
 //
 //    Параметры:
@@ -38,14 +35,26 @@ endfunction
 //                или же бинарный массив как <array>,<fixedarray>
 //
 //    Возвращает:
-//        <number>
-function or_(a,b) export
-    return convert.to_dec(bitwise.or_(a,b));
+//        <binaryArray>
+function or_(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an or bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0] or b[0]);
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function xor(a,b)
+//function xor(val a,val b)
 //    Реализует побитовую операцию исключающего ИЛИ для значений a и b.
 //
 //    Параметры:
@@ -54,9 +63,21 @@ endfunction
 //                или же бинарный массив как <array>,<fixedarray>
 //
 //    Возвращает:
-//        <number>
-function xor(a,b) export
-    return convert.to_dec(bitwise.xor(a,b));
+//        <binaryArray>
+function xor(val a,val b) export
+    a=convert.to_binarray(a);
+    b=convert.to_binarray(b);
+    res=new Array();
+    i=a.ubound();
+    j=b.ubound();
+    while i>0 or j>0 do
+        an=?(i<1,a[0],a[i]);
+        bn=?(j<1,b[0],b[j]);
+        res.insert(0,an<>bn);
+        i=i-1;j=j-1;
+    enddo;
+    res.insert(0,a[0]<>b[0]);
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -70,35 +91,39 @@ endfunction
 //                или же бинарный массив как <array>,<fixedarray>
 //
 //    Возвращает:
-//        <number>
+//        <binaryArray>
 function not_(value) export
-    return convert.to_dec(inv(convert.to_binarray(value)));
+    return inv(value);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function lshift(value,shift) export
-    if check.is_number(value) then
-        return value*pow(2,shift);
-    endif;
-    return convert.to_dec(bitwise.lshift(value,shift));
+    res=convert.to_binarray(value);
+    for i=1 to shift do
+        res.insert(0,res[0]);
+    enddo;
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function rshift(value,shift) export
-    if check.is_number(value) then
-        return int(value/pow(2,shift));
-    endif;
-    return convert.to_dec(bitwise.rshift(value,shift));
+    res=convert.to_binarray(value);
+    i=1;
+    while res.count()<>1 and i<=shift do
+        res.delete(1);i=i+1;
+    enddo;
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function inv(value) export
-    l=value.ubound();
+    res=convert.to_binarray(value);
+    l=res.ubound();
     for i=0 to l do
-        value.set(i,not value[i]); // why set?
+        res.set(i,not res[i]); // why set?
     enddo;
-    return value;
+    return res;
 endfunction
