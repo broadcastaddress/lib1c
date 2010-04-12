@@ -35,83 +35,104 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function AssertError(msg="",env=undefined) export
-    return BaseException("AssertError",msg,env);
+function AssertionError(msg="",env=undefined) export
+    return BaseException("AssertionError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function ArithmeticError(msg="",env=undefined) export
+    return BaseException("ArithmeticError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function AttributeError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"attribute reference or assignment error");
+    msg=?(msg<>"",msg,"attribute reference or assignment error");
     return BaseException("AttributeError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function COMObjectError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"unknown exception of COMObject");
+    msg=?(msg<>"",msg,"unknown exception of COMObject");
     return BaseException("COMObjectError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function IndexError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"invalid index or index is out of range");
+    msg=?(msg<>"",msg,"invalid index or index is out of range");
     return BaseException("IndexError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function KeyError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"invalid key name or key not found");
+    msg=?(msg<>"",msg,"invalid key name or key not found");
     return BaseException("KeyError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function NameError(msg="",env=undefined) export
-    
+    msg=?(msg<>"",msg,"function or variable are not accessiable");
+    return BaseException("NotImplementedError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function NotImplementedError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"feature is not implemented yet");
+    msg=?(msg<>"",msg,"feature is not implemented yet");
     return BaseException("NotImplementedError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function OverflowError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"value overflow");
+    msg=?(msg<>"",msg,"value overflow");
     return BaseException("OverflowError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function PermissionError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"you have no permission for such operation");
+    msg=?(msg<>"",msg,"you have no permission for such operation");
     return BaseException("PermissionError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+function ReferenceError(msg="",env=undefined) export
+    msg=?(msg<>"",msg,"invalid reference or reference is empty");
+    return BaseException("ReferenceError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function StateError(msg="",env=undefined) export
+    msg=?(msg<>"",msg,"invalid object state");
+    return BaseException("StateError",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
 function TransactionError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"transaction was aborted");
+    msg=?(msg<>"",msg,"transaction was aborted");
     return BaseException("TransactionError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function TypeError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"invalid value type");
+    msg=?(msg<>"",msg,"invalid value type");
     return BaseException("TypeError",msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function ValueError(msg="",env=undefined) export
-    msg=?(check.is_true(msg),msg,"invalid value given");
+    msg=?(msg<>"",msg,"invalid value given");
     return BaseException("ValueError",msg,env);
 endfunction
 

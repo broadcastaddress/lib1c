@@ -338,12 +338,11 @@ function replace(text,pattern,replace_by) export
     endif;
     compile(regex_object,pattern);
     try
-        return regex_object.Replace(text,replace_by);
+        return regex_object.replace(text,replace_by);
     except
-        raise exception.COMObjectError(
-            errorinfo().description,
-            new Structure("text,pattern,replace_by",text,pattern,replace_by)
-        );
+        msg=errorinfo().description;
+        env=new Structure("text,pattern,replace_by",text,pattern,replace_by);
+        raise exception.COMObjectError(msg,env);
     endtry;
 endfunction
 
@@ -369,26 +368,30 @@ function test(text,pattern) export
     if regex_object=undefined then
         regex_object=init();
     endif;
-    if not check.is_string(text) then
-        raise exception.TypeError(
-            "Argument 1 (text) must be string type",
-            new Structure("text,pattern",text,pattern)
-        );
-    endif;
-    if not check.is_string(pattern) then
-        raise exception.TypeError(
-            "Argument 2 (pattern) must be string type",
-            new Structure("text,pattern",text,pattern)
-        );
-    endif;
-    compile(regex_object,pattern);
+    try
+        assert(typeof(regex_object)=type("COMObject"));
+        assert(typeof(text)=type("string"));
+        assert(typeof(pattern)=type("string"));
+        
+        compile(regex_object,pattern);
+    except
+        env=new Structure("regex_object,text,pattern",regex_object,text,pattern);
+        if not check.type_is(regex_object,"COMObject") then
+            raise exception.ValueError("Invalid VBScript.RegExp object",env);
+        endif;
+        if not check.is_string(text) then
+            raise exception.TypeError("Argument 1 (text) must be string type",env);
+        endif;
+        if not check.is_string(pattern) then
+            raise exception.TypeError("Argument 2 (pattern) must be string type",env);
+        endif;
+        raise;
+    endtry;
     try
         return regex_object.test(text);
     except
-        raise exception.COMObjectError(
-            errorinfo().description,
-            new Structure("text,pattern",text,pattern)
-        );
-        return False;
+        msg=errorinfo().description;
+        env=new Structure("text,pattern",text,pattern);
+        raise exception.COMObjectError(msg,env);
     endtry;
 endfunction

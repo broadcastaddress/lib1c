@@ -61,8 +61,8 @@ function pack(expr)
         return """"+xmlstring(expr)+"""";
     elsif check.is_enum(expr) then
         return ?(ValueIsFilled(expr),
-                    pack(metadata.findbytype(tval).fullname()+"."+xmlstring(expr)),
-                    pack("null"));
+                 pack(metadata.findbytype(tval).fullname()+"."+xmlstring(expr)),
+                 pack("null"));
     elsif metadata.findbytype(tval)<>undefined then
         pack(convert.to_structure(expr));
     else
@@ -221,7 +221,7 @@ function scanstring(s,i)
             _b.insert("t","\t");
             m=_b.get(esc);
             if m=undefined then
-                msg = "Invalid \escape: "+esc;
+                msg = "Invalid `\X` escape "+esc;
                 raise exception.ValueError(errmsg(msg, s, end));
             endif;
             end=end+1;
@@ -232,7 +232,7 @@ function scanstring(s,i)
             try
                 uni=esc;
                 if 55296<=esc and esc<=56319 then
-                    msg="Invalid \\uXXXX\\uXXXX surrogate pair";
+                    msg="Invalid \uXXXX\uXXXX surrogate pair";
                     if not mid(s,end+5,2)="\u" then
                         raise "ValueError";
                     endif;
@@ -283,7 +283,7 @@ function json_object(s,end)
         c=mid(s,end,1);
         if c<>":" then
             raise exception.ValueError(
-                            errmsg("Expecting : delimiter",s,end));
+                            errmsg("Expecting `:` delimiter",s,end));
         endif;
         end=skip_ws(s,end+1);
         res=scanner(s,end);

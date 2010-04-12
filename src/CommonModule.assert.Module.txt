@@ -456,34 +456,4 @@ function hasattr(expr,attrs,msg=undefined,env=undefined) export
     return True;
 endfunction
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function is_in(member,container,src="<unknown>",msg=undefined,env=undefined) export
-    if not check.is_in(member,container) then
-        defaultMsg="{member} not found in {container}";
-        failureException(src,msg,defaultMsg,new Structure("member,container",member,container),env);
-    endif;
-    return True;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function is_not_in(member,container,src="<unknown>",msg=undefined,env=undefined) export
-    if check.is_in(member,container) then
-        defaultMsg="{member} unexpectedly found in {container}";
-        failureException(src,msg,defaultMsg,new Structure("member,container",member,container),env);
-    endif;
-    return True;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function hasattr(expr,attrs,src="<unknown>",msg=undefined,env=undefined) export
-    if not check.hasattr(expr,attrs) then
-        defaultMsg="{expr} has no one of this keys: {attrs}";
-        failureException(src,msg,defaultMsg,new Structure("expr,attrs",expr,attrs),env);
-    endif;
-    return True;
-endfunction
-
 /////////////////////////////////////////////////////////////////////////////

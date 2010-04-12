@@ -1,6 +1,6 @@
 ﻿function assert(expr,msg="",env=undefined) export
     if not expr then
-        raise exception.AssertError(msg,env);
+        raise exception.AssertionError(msg,env);
     endif;
     return True;
 endfunction
@@ -126,5 +126,4 @@ function repeat(item,count=1) export
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
-
 
