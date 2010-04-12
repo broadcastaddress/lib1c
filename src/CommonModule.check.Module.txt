@@ -265,27 +265,49 @@ function is_iterable(v) export
 endfunction
 
 function is_bin(v) export
-    return re.test(v,"^-?0b[01]+$");
+    try
+        return re.test(v,"^-?0b[01]+$");
+    except
+        return false;
+    endtry;
 endfunction
 
 function is_binarr(v) export
-    if not is_array(v) or is_false(v) then
+    if not is_array(v) or is_false(v) then return false; endif;
+    try
+        // можно долго смеяться и материться, но так
+        // в ДВА РАЗА быстрее, чем без execute.
+        // если записать одной строкой, получим ту же скорость,
+        // но не уложимся в 80 символов
+        //
+        // к сожалению, пока данная функция жесткий тормоз всех
+        // битовых операций.
+        execute("
+        |for each i in v do 
+        |   if typeof(i)<>type(""boolean"") then 
+        |       raise ""false""; 
+        |   endif;
+        |enddo;");
+    except
         return false;
-    endif;
-    for each i in v do
-        if not is_boolean(i) then
-            return false;
-        endif;
-    enddo;
+    endtry;
     return true;
 endfunction
 
 function is_oct(v) export
-    return re.test(v,"^-?0[0-7]+$");
+    try
+        return re.test(v,"^-?0[0-7]+$");
+    except
+        return false;
+    endtry;
 endfunction
 
 function is_hex(v) export
-    return re.test(v,"^(?:-?0x|\x|\u)[0-9a-fA-F]+$");
+    try
+        return re.test(v,"^(?:-?0x|\x|\u)[0-9a-fA-F]+$");
+    except
+        return false;
+    endtry;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -337,13 +359,17 @@ function is_in_range(expr,lbound,ubound) export
 endfunction
 
 function regex_match(text,val pattern) export
-    if left(pattern,1)<>"^" then
-        pattern="^"+pattern;
-    endif;
-    if right(pattern,1)<>"$" then
-        pattern=pattern+"$";
-    endif;
-    return re.test(text,pattern);
+    try
+        if left(pattern,1)<>"^" then
+            pattern="^"+pattern;
+        endif;
+        if right(pattern,1)<>"$" then
+            pattern=pattern+"$";
+        endif;
+        return re.test(text,pattern);
+    except
+        return false;
+    endtry;
 endfunction
 
 function is_in(member,container) export
@@ -385,9 +411,7 @@ function is_not_in(member,container) export
 endfunction
 
 function hasattr(expr,keys) export
-    list=?(is_string(keys),
-            string.split(keys,","),
-            keys);
+    list=?(is_string(keys),string.split(keys,","),keys);
     if is_array_or_fixedarray(list) then
         for each k in list do
             if is_not_in(trimall(k),expr) then

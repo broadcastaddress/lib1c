@@ -100,8 +100,11 @@ endfunction
 
 function lshift(value,shift) export
     res=convert.to_binarray(value);
+    if res=value then
+        res=_copy(value);
+    endif;
     for i=1 to shift do
-        res.insert(0,res[0]);
+        res.add(res[0]);
     enddo;
     return res;
 endfunction
@@ -110,9 +113,13 @@ endfunction
 
 function rshift(value,shift) export
     res=convert.to_binarray(value);
-    i=1;
-    while res.count()<>1 and i<=shift do
-        res.delete(1);i=i+1;
+    if res=value then
+        res=_copy(value);
+    endif;
+    l=res.count()-shift;
+    l=?(l<1,1,l);
+    while res.count()<>l do
+        res.delete(res.ubound());
     enddo;
     return res;
 endfunction
@@ -121,9 +128,17 @@ endfunction
 
 function inv(value) export
     res=convert.to_binarray(value);
+    if res=value then
+        res=_copy(value);
+    endif;
     l=res.ubound();
     for i=0 to l do
         res.set(i,not res[i]); // why set?
     enddo;
     return res;
+endfunction
+
+function _copy(arr)
+    res=new valuestorage(arr);
+    return res.get();
 endfunction

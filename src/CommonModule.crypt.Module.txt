@@ -5,11 +5,11 @@
         msg="Argument 2 (k) must be string";
         raise exception.TypeError(msg,new Structure("s,k",s,k));
     endtry;
-    x=1;
+    x=0;
     res="";
-    box=range(0,255);
-    for each i in range(0,255) do
-        x=(x+box[i]+charcode(mid(k,i%l)))%256;
+    box=range(0,256);
+    for i=0 to 255 do
+        x=(x+box[i]+charcode(mid(k,(i%l)+1,1)))%256;
         t=box[i];
         box[i]=box[x];
         box[x]=t;
@@ -24,11 +24,44 @@
     for i=1 to l do
         cc=charcode(mid(s,i,1));
         x=(x+1)%256;
-        y=(y+box[y])%256;
+        y=(y+box[x])%256;
         t=box[y];
         box[y]=box[x];
         box[x]=t;
         res=res+char(convert.to_dec(bitwise.xor(cc,box[(box[x]+box[y])%256])));
+    enddo;
+    return res;
+endfunction
+
+function rot13(s) export
+    l=strlen(s);
+    res="";
+    for i=1 to l do
+        c=mid(s,i,1);
+        cc=charcode(c);
+        if (cc>=65 and cc<=90)or(cc>=97 and cc<=122) then
+            cap=bitwise.and_(cc,32);
+            byte=convert.to_dec(bitwise.and_(cc,bitwise.not_(cap)));
+            byte=(byte-charcode("A")+13)%26+charcode("A");
+            c=char(convert.to_dec(bitwise.or_(byte,cap)));
+        endif;
+        res=res+c;
+    enddo;
+    return res;
+endfunction
+
+function rot47(s) export
+    l=strlen(s);
+    res="";
+    for i=1 to l do
+        c=mid(s,i,1);
+        cc=charcode(c);
+        if (cc>=33 and cc<=79) then
+            c=char((cc+47)%127);
+        elsif (cc>=80 and cc<=126) then
+            c=char((cc-47)%127);
+        endif;
+        res=res+c;
     enddo;
     return res;
 endfunction
