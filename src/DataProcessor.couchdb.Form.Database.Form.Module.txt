@@ -15,11 +15,11 @@ var _resource export;
 //  Инициализация объекта
 //
 //    Возвращает:
-//      thisobject
+//      thisoform
 //
 function init(url,name,session=undefined) export
     if typeof(url)=type("string") then
-        _resource=self.Resource(url,session);
+        _resource=couchdb.Resource(url,session);
     else
         _resource=url;
     endif;
@@ -47,7 +47,7 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function repr()
-//  Возвращает строковое представление объекта
+//  Возвращает строковое представление объекта базы
 //
 //    Возвращает:
 //      <string>
@@ -70,8 +70,8 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function get(id)
-//  Возвращает документ по его id
+//function get(id,defalut=undefined,options=undefined)
+//  Возвращает данные документа по его id
 //
 //    Параметры:
 //      id <string> -- id документа
@@ -79,75 +79,66 @@ endfunction
 //    Возвращает:
 //      <map>
 //
-function get(id) export
-    return _resource.get_json(id).data;
+function get(id,default=undefined,options=undefined) export
+    try
+        return _resource.get_json(id,undefined,options).data;
+    except
+        err=exception.catch(errorinfo());
+        if err.type="ResourceNotFound" then
+            return default;
+        endif;
+        raise;
+    endtry;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function set(id,content)
+//function set(id,data)
 //  Создает/обновляет документ по id
 //
 //    Параметры:
-//           id <string> -- id документа
-//      content <structure>, <map> -- данные документа
+//        id <string> -- id документа
+//      data <structure>, <map> -- данные документа
 //
 //    Возвращает:
-//      content
+//      data
 //
 //    Описание:
-//      Если content содержит атрибут _rev, то будет произведено
+//      Если data содержит атрибут _rev, то будет произведено
 //      обновление документа, иначе будет попыка его создать.
 //
-//      По завершению операции, обновляет ключи _id и _rev у content.
+//      По завершению операции, обновляет ключи _id и _rev у data.
 //
-//      Баг. Если следовать указаниям комментария метода create, то
-//      в случае указания в id любых символов, требующих кодирования
-//      по стандарту форматирования uri, то при создании нового документа
-//      id будет испорчен. Фикс включен.
-//
-function set(id,content) export
+function set(id,data) export
     if not has(id) then
-        content.insert("_id",id);
-        res=_resource.post_json(undefined,content);
+        data.insert("_id",id);
+        res=_resource.post_json(undefined,data);
     else
-        res=_resource.put_json(id,content);
+        res=_resource.put_json(id,data);
     endif;
-    content.insert("_id",res.data["id"]);
-    content.insert("_rev",res.data["rev"]);
-    return content;
+    data.insert("_id",res.data["id"]);
+    data.insert("_rev",res.data["rev"]);
+    return data;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function del(id_or_doc)
+//function del(id)
 //  Удаляет документ из базы
 //
 //    Параметры:
-//      id_or_doc <string>,<structure>,<map> -- id документа или сам документ
-//
-//    Исключения:
-//      ResourceConflict
+//      id <string> -- id документа
 //
 //    Возвращает:
 //      True - как знак успеха операции.
 //
-//    Описание:
-//      Если был передан документ и он был изменен, то есть текущая ревизия
-//      не совпадает с ревизией документа, то будет вызвано исключение
-//      ResourceConflict.
-//
-function del(id_or_doc) export
-    if typeof(id_or_doc)=type("string") then
-        id=id_or_doc;
-        res=_resource.head(id);
-        params=new Structure("rev",string.strip(res.headers["etag"],""""));
-        _resource.delete_json(id,undefined,params);
-    else
-        doc=id_or_doc;
-        return self.resource.delete_json(doc["_id"],
-                                         new Structure("rev",doc["_rev"]));
+function del(id) export
+    doc=get(id);
+    if doc=undefined then
+        env=new Structure("id",id);
+        raise exception.ValueError("Document with this id doesn't exists",env);
     endif;
+    _resource.delete_json(doc["_id"],undefined,new Structure("rev",doc["_rev"]));
     return True;
 endfunction
 
@@ -181,6 +172,96 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+//function load(id,defalut=undefined,options=undefined)
+//  Возвращает документ по его id
+//
+//    Параметры:
+//      id <string> -- id документа
+//
+//    Возвращает:
+//      <CouchDB.Forms.IDocument(<CouchDB.Forms.Document>)>
+//
+function load(id,default=undefined,options=undefined) export
+    try
+        return couchdb.Document(_resource.get_json(id,undefined,options).data);
+    except
+        err=exception.catch(errorinfo());
+        if err.type="ResourceNotFound" then
+            return default;
+        endif;
+        raise;
+    endtry;
+endfunction
+
+//function save(doc)
+//  Создает документ в базе или обновляет уже существующий.
+//
+//    Параметры:
+//        doc <CouchDB.Forms.IDocument> -- объект документа
+//
+//    Возвращает:
+//      <Array(id,rev)>
+//
+//    Описание:
+//      Если документ не содержит поле _id, то тогда сервер сгененирует
+//      свой случайный id и создаст документ. Иначе же поле _id будет
+//      использовано для определения идентификатора для создания или обновления
+//      докумета. Попытка обновить документ с неправильным или отличным 
+//      от текущего полем _rev вызовет исключение ResourceConfict.
+//
+//      Следует отметить, что лучше предварительно сгенерировать _id документа,
+//      поскольку метод POST HTTP-прокотола обязывает повторять запрос в случае
+//      если возникли какие-либо неполадки в сети. В таком случае, если оставить
+//      генерацию id на стороне сервера, можно создать несколько одинаковых
+//      документов с разными id.
+//
+//      Если нужен произвольный id документа, можно вызвать метод genid() самого
+//      документа или установить вручную чере doc.set("_id","someid")
+//
+//      По завершению создания или обновления документа в базе, у переданного
+//      объекта обновляются поля _id и _rev.
+//
+//      Метод возвращает массив, содержащий новые id и rev.
+function save(doc,options=undefined) export
+    res=_resource.post_json(undefined,doc.dispatch(),options).data;
+    doc.set("_id",res["id"]);
+    if res["rev"]<>null then //Not present for batch='ok'
+        doc.set("_rev",res["rev"]);
+    endif;
+    return pair(res["id"],res["rev"]);
+endfunction
+
+//function delete(doc)
+//  Удаляет документ из базы
+//
+//    Параметры:
+//        doc <CouchDB.Forms.IDocument> -- объект документа
+//
+//    Возвращает:
+//      True как знак успеха операции
+//
+//    Описание:
+//      Является аналогом записи db.del(doc.get("_id")), за тем исключением,
+//      что принимает объект документа вместо _id и не производит дополнительный
+//      запрос на получение текущей ревизии документа.
+function delete(doc,options=undefined) export
+    try
+        _resource.delete_json(doc.get("_id"),
+                              undefined,
+                              new Structure("rev",doc.get("_rev")));
+    except
+        err=exception.catch(errorinfo());
+        if err.type="ResourceNotFound" then
+            env=new Structure("doc",doc.dispatch());
+            raise exception.ValueError("Document doesn't exists",env);
+        endif;
+        raise
+    endtry;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
 //function list()
 //  Возвращает список документов в базе
 //
@@ -193,30 +274,6 @@ function list() export
         res.add(item["id"]);
     enddo;
     return res;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-//function create(content)
-//  Создает новый документ в базе с случайным ID, сгенерированным сервером.
-//
-//    Параметры:
-//      content <string>, <structure>, <map> -- данные документа
-//
-//    Возвращает:
-//      <string> - id созданного документа
-//
-//    Описание:
-//      ВНИМАНИЕ! Лучше избегать применение данного метода и использовать
-//      метод `set`. Это обусловленно тем, что метод POST HTTP протокола
-//      обязует автоматический повтор запроса, если возникли проблемы где-то
-//      на сетевом уровне, что может привести к попытке создания нескольких
-//      одинаковых документов с разными идентификаторами в базе.
-//
-//      Лучше воспользоваться методом set или предварительно сгенерировать id.
-//
-function create(content) export
-    return _resource.post_json(undefined,content).data;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -315,7 +372,6 @@ function ping() export
         return False;
     endtry;
 endfunction
-
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -477,8 +533,8 @@ function view(val name,wrapper=undefined,options=undefined) export
         name=l[1];
         name="_design/"+design+"/_view/"+name;
     endif;
-    return self.PermView(
-                _resource.copy(string.split(name,"/")),
-                name,
-                wrapper).exec(options);
+    return couchdb.PermView(
+                    _resource.copy(string.split(name,"/")),
+                    name,
+                    wrapper).exec(options);
 endfunction

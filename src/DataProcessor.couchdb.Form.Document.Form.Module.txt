@@ -1,91 +1,26 @@
 ﻿var _schema;
 var _data;
-var _attrs;
 
-function _get_type(metainfo)
-    _map=new Structure("constant,enum,catalog,document,cct,inforegistry,accumulationregister",
-                       "valuemanagermodule","enumvalues","owners","posting","characteristicExtValues","informationRegisterPeriodicity","enableTotalsSplitting");
-    for each item in _map do
-        try
-            temp=metainfo[item.value];
-            return item.key;
-        except
-        endtry;
-    enddo;
-    raise exception.ValueError("unsupported metadata value "+metainfo.fullname());
-endfunction
-
-function init(schema=undefined) export
-    _schema=new map();
+function init(data=undefined,schema=undefined) export
+    _schema=undefined;
     _data=new map();
-    if schema=undefined then
-        return thisform;
-    elsif check.is_structure_or_map(schema) then
-        for each item in schema do
-            assert.is_string(item.key,"couchdb.Document","string required");
-            _schema.insert(item.key,undefined);
-        enddo;
-        return thisform;
+    if schema<>undefined then
+        _schema=new map();
+        if check.is_structure_or_map(schema) then
+            for each item in schema do
+                assert.is_string(item.key,"couchdb.Document","string key required");
+                _schema.insert(item.key,null);
+            enddo;
+        else
+            raise exception.TypeError();
+        endif;
+    endif;
+    if check.is_structure_or_map(data) then
+        thisform.update(data);
     else
-        metainfo=?(typeof(schema)=type("metadataobject"),
-                   schema,
-                   metadata.findbytype(typeof(schema)));
-    endif;
-    if metainfo=undefined then
-        raise exception.TypeError("Invalid schema description");
-    endif;
-    // who knows better way?
-    tschema=_get_type(metainfo);
-    if tschema="constant" or tschema="enum" then
-        _schema.insert("value",undefined);
-    elsif tschema="catalog" or tschema="cct" or tschema="document" then
-        _schema.insert("ref",undefined);
-        _schema.insert("deletionmark",undefined);
-        if tschema="catalog" or tschema="cct" then
-            _schema.insert("name",undefined);
-            _schema.insert("code",undefined);
-            _schema.insert("description",undefined);
-            _schema.insert("predefined",undefined);
-            _schema.insert("parent",undefined);
-            _schema.insert("isfolder",undefined);
-        endif;
-        if tschema="catalog" then
-            _schema.insert("owner",undefined);
-        endif;
-        if tschema="cct" then
-            _schema.insert("valuetype",undefined);
-        endif;
-        if tschema="document" then
-            _schema.insert("number",undefined);
-            _schema.insert("posted",undefined);
-            _schema.insert("date",undefined);
-        endif;
-        for each attr in metainfo.attributes do
-            _schema.insert(attr.name,undefined);
-        enddo;
-        for each ts in metainfo.tabularsections do
-            _schema.insert(ts.name,new Array());
-        enddo;
-    elsif tschema="inforegistry" then
-        _schema.insert("active",undefined);
-        _schema.insert("linenumber",undefined);
-        _schema.insert("period",undefined);
-        _schema.insert("recorder",undefined);
-        for each attr in metainfo.attributes do
-            _schema.insert(attr.name,undefined);
-        enddo;
-        for each attr in metainfo.resources do
-            _schema.insert(attr.name,undefined);
-        enddo;
-        for each attr in metainfo.dimensions do
-            _schema.insert(attr.name,undefined);
-        enddo;
+        raise exception.ValueError();
     endif;
     return thisform;
-endfunction
-
-function attrs() export
-    return _attrs;
 endfunction
 
 function dispatch() export
@@ -98,66 +33,58 @@ endfunction
 
 function set(k,v) export
     _data[k]=v;
+    return thisform;
 endfunction
 
 function del(k) export
     _data.delete(k);
+    return thisform;
 endfunction
 
-function load(src) export
+function has(k) export
+    return check.hasattr(_data,k);
+endfunction
+
+function genid(args=undefined)
+    if args=undefined then
+        return string(new UUID());
+    else
+        return string(args);
+    endif;
+endfunction
+
+function clear() export
+    id=undefined;rev=undefined;
+    if check.hasattr(_data,"_id") then
+        id=thisform.get("_id");
+    endif;
+    if check.hasattr(_data,"_rev") then
+        rev=thisform.get("_rev");
+    endif;
     _data=new map();
-    for each item in _schema do
-        _data.insert(item.key,item.value);
-    enddo;
-    if not check.is_structure_or_map(src) then
-        for each item in convert.to_structure(src) do
-            _data[item.key]=item.value;
+    if _schema<>undefined then
+        for each item in _schema do
+            thisform.set(item.key,null);
         enddo;
-        tval=typeof(src);
-        metainfo=metadata.findbytype(tval);
-        _data.insert("_id",genid(src));
-        _data.insert(".class",metainfo.name);
-        _data.insert(".fullname",metainfo.fullname());
-        _data.insert(".metaclass",string.split(metainfo.fullname(),".")[0]);
-    else
-        FillPropertyValues(_data,src);
     endif;
+    if id<>undefined then
+        thisform.set("_id",id);
+    endif;
+    if rev<>undefined then
+        thisform.set("_rev",rev);
+    endif;
+    return thisform;
 endfunction
 
-function store(db=undefined) export
-    if db=undefined then
-        raise exception.NotImplementedError();
-    else
-        if not check.hasattr(_data,"_id") then
-            _data.insert("_id",string(new UUID()));
+function update(data) export
+    for each item in data do
+        if _schema<>undefined then
+            if _schema.get(item.key)=null then
+                thisform.set(item.key,item.value);
+            endif;
+        else
+            thisform.set(item.key,item.value);
         endif;
-        db.set(_data["_id"],_data);
-    endif;
-endfunction
-
-function genid(expr)
-    metainfo=metadata.findbytype(typeof(expr));
-    if check.is_inforegistry(expr) or check.is_accumulregistry(expr) then
-        // Очень дурацкая затея, поскольку мы делаем ключ
-        // слишком длинныи и сложным для поиска, но сохранив
-        // возможность "построить" его из отдельных элементов,
-        // не прибегая к запросам.
-        //
-        // нам срочно нужна какая либо адекватная хеш-функция!
-        attrs=new Array();
-        attrs.add(metainfo.name);
-        for each attr in metainfo.dimensions do
-            attrs.add(convert.to_string(expr[attr.name]));
-        enddo;
-        id=string.join("|",attrs);
-    elsif check.is_constant(expr) then
-        id=metainfo.fullname();
-    elsif check.is_enum(expr) then
-        id=metainfo.fullname()+"."+xmlstring(expr);
-    elsif check.metadata_contains(expr) then
-        id=xmlstring(expr.ref);
-    else
-        id=string(new UUID());
-    endif;
-    return id;
+    enddo;
+    return thisform;
 endfunction

@@ -10,8 +10,26 @@
 // версия обработки
 var VERSION export;
 
-function Document(schema=undefined) export
-    return thisobject.getForm("Document").init(schema);
+//function Document(data=udefined,schema=undefined)
+//  Инициализирует документ 
+//
+//  Параметры:
+//        data <structure>, <map> -- начальные данные документа
+//      schema <structure>, <map> -- схема докумета
+//
+//  Возвращает:
+//      <CouchDB.Forms.IDocument>
+//
+//  Описание:
+//      
+function Document(data=undefined,schema=undefined) export
+    return thisobject.getForm("IDocument")
+                     .init(thisobject.getForm("Document"),data,schema);
+endfunction
+
+function MetadataDocument(data=undefined,schema=undefined) export
+    return thisobject.getForm("IDocument")
+                     .init(thisobject.getForm("MetadataDocument"),data,schema);
 endfunction
 
 function Database(url,name) export

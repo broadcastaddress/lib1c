@@ -43,8 +43,8 @@ endfunction
 
 ///////////////////////////////////////////////////////////////////
 
-function request(method,url,body=undefined,headers=undefined) export
-    req=urllib.request(url,method);
+function request(method,url,body=undefined,headers=undefined,params=undefined) export
+    req=urllib.Request(url,method);
     if headers<>undefined then
         for each item in headers do
             req.headers.insert(item.key,item.value);
@@ -54,7 +54,7 @@ function request(method,url,body=undefined,headers=undefined) export
     req.headers.insert("User-Agent","CouchDB-1C/"+self.VERSION);
     
     if body<>undefined then
-        if typeof(body)<>type("string") then
+        if not check.is_string(body) then
             req.query=json.encode(body);
             req.headers.insert("Content-Type","application/json");
         else
@@ -64,6 +64,13 @@ function request(method,url,body=undefined,headers=undefined) export
             req.query=body;
         endif;
     endif;
+    
+    if params<>undefined then
+        for each item in params do
+            req.url.query.insert(item.key,item.value);
+        enddo;
+    endif;
+    
     if check.is_true(req.url.username) then
         req.headers.insert(
             "Authorization",
@@ -81,7 +88,7 @@ function request(method,url,body=undefined,headers=undefined) export
             break;
         except
             err=exception.catch(errorInfo());
-            if err.type="XMLHTTPError" or n<=limit then
+            if err.type="XMLHTTPError" and n<=limit then
                 n=n+1;
             else
                 raise;

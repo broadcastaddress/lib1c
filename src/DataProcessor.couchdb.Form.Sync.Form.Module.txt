@@ -1,141 +1,162 @@
-﻿function sync_all(url,dbname="couch1c") export
+﻿var keys;
+var time;
+
+function timeit(reset=false)
+    if reset then
+        time=currentdate();
+    else
+        return currentdate()-time;
+    endif;
+endfunction
+
+function logit(msg)
+    message("["+convert.to_string(timeit())+"] "+msg);
+endfunction
+
+function commit(db,stack)
+    if stack.count()>=100 then
+        db.update(stack);
+        stack.clear();
+    endif;
+endfunction
+
+function sync_all() export
     couchdb=DataProcessors.couchdb.create();
-    server=couchdb.Server(url);
+    server=couchdb.Server(
+        getattr(Constants,"CouchDB_Sync_Server","http://localhost:5984")
+    );
+    if not server.ping() then
+        return false;
+    endif;
+    dbname=getattr(Constants,"CouchDB_Sync_Database","couch1c");
     if not server.has(dbname) then
         server.create(dbname);
     endif;
     db=server.get(dbname);
     
     stack=new array();
-    // constants
-    for each metainfo in metadata.constants do
-        doc=couchdb.Document(metainfo);
-        doc.load(Constants[metainfo.name]);
-        doc.set(".author",UserFullName());
-        doc.set(".message","sync update");
-        stack.add(doc.dispatch());
-    enddo;
-    
-    // enums
-    for each metainfo in metadata.enums do
-        doc=couchdb.Document(metainfo);
-        for each value in metainfo.enumvalues do
-            doc.load(Enums[metainfo.name][value.name]);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-        enddo;
-    enddo;
-    db.update(stack);
-    
-    // catalogs
     i=0;
-    size=100;
-    for each metainfo in metadata.catalogs do
-        doc=couchdb.Document(metainfo);
-        row=Catalogs[metainfo.name].select();
-        while row.next() do
-            doc.load(row);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-            if i%size=0 then
-                Controls.object.Value=doc[".fullname"];
-                Controls.position.Value=string(i);
-                db.update(stack);
-                stack.clear();
+    timeit(true);
+    for each key_ in keys do
+        while true do
+            task=todolist.get(key_);
+            if task=undefined then
+                break;
             endif;
-            i=i+1;
-            //doc.store(db);
+            logit("TaskID: "+convert.to_string(task.id)+" started. Object: "+task.data);
+            try
+                todolist.lock(task.id);
+                logit("Task is locked successful.");
+            except
+                logit("Concurent lock exception for this task. Going for next one.");
+                continue;
+            endtry;
+            logit("Sending data to CouchDB server...");
+            obj=eval(task.data);
+            metainfo=metadata.findbytype(typeof(obj));
+            if key_=keys[0] then
+                doc=couchdb.MetadataDocument(obj);
+                if db.has(doc.get("_id")) then
+                    data=doc.dispatch();
+                    doc=db.load(data["_id"]);
+                    doc.update(data);
+                endif;
+                stack.add(doc.dispatch());
+                commit(db,stack);
+            elsif key_=keys[1] then
+                for each value in metainfo.enumvalues do
+                    doc=couchdb.MetadataDocument(obj);
+                    if db.has(doc.get("_id")) then
+                        data=doc.dispatch();
+                        doc=db.load(data["_id"]);
+                        doc.update(data);
+                    endif;
+                    stack.add(doc.dispatch());
+                enddo;
+                commit(db,stack);
+            elsif key_=keys[5] or key_=keys[6] then
+                row=obj.select();
+                while row.next() do
+                    doc=couchdb.MetadataDocument(obj);
+                    if db.has(doc.get("_id")) then
+                        data=doc.dispatch();
+                        doc=db.load(data["_id"]);
+                        doc.update(data);
+                    endif;
+                    stack.add(doc.dispatch());
+                    commit(db,stack);
+                enddo;
+            else
+                row=obj.select();
+                while row.next() do
+                    doc=couchdb.MetadataDocument(obj);
+                    if db.has(doc.get("_id")) then
+                        data=doc.dispatch();
+                        doc=db.load(data["_id"]);
+                        doc.update(data);
+                    endif;
+                    stack.add(doc.dispatch());
+                    commit(db,stack);
+                enddo;
+            endif;
+            db.update(stack);
+            stack.clear();
+            logit("Data has been commited successful.");
+            todolist.done(task.id);
+            logit("Task: "+convert.to_string(task.id)+" is done.");
         enddo;
     enddo;
-    
-    size=25;
-    for each metainfo in metadata.documents do
-        doc=couchdb.Document(metainfo);
-        row=Catalogs[metainfo.name].select();
-        while row.next() do
-            doc.load(row);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-            if i%size=0 then
-                Controls.object.Value=doc[".fullname"];
-                Controls.position.Value=string(i);
-                db.update(stack);
-                stack.clear();
-            endif;
-            i=i+1;
-            //doc.store(db);
-        enddo;
-    enddo;
-    db.update(stack);
+    if stack.count()>0 then
+        db.update(stack);
+    endif;
     stack.clear();
-    // CCT
-    i=0;
-    size=25;
-    for each metainfo in metadata.chartsOfCharacteristicTypes do
-        doc=couchdb.Document(metainfo);
-        row=Catalogs[metainfo.name].select();
-        while row.next() do
-            doc.load(row);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-            if i%size=0 then
-                Controls.object.Value=doc[".fullname"];
-                Controls.position.Value=string(i);
-                db.update(stack);
-                stack.clear();
-            endif;
-            i=i+1;
-        enddo;
-    enddo;
-    
-    // information registries
-    size=50;
-    for each metainfo in metadata.informationRegisters do
-        doc=couchdb.Document(metainfo);
-        row=Catalogs[metainfo.name].select();
-        while row.next() do
-            doc.load(row);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-            if i%size=0 then
-                Controls.object.Value=doc[".fullname"];
-                Controls.position.Value=string(i);
-                db.update(stack);
-                stack.clear();
-            endif;
-            i=i+1;
-        enddo;
-    enddo;
-    
-    // accumulation registries
-    size=50;
-    for each metainfo in metadata.accumulationRegisters do
-        doc=couchdb.Document(metainfo);
-        row=Catalogs[metainfo.name].select();
-        while row.next() do
-            doc.load(row);
-            doc.set(".author",UserFullName());
-            doc.set(".message","sync update");
-            stack.add(doc.dispatch());
-            if i%size=0 then
-                Controls.object.Value=doc[".fullname"];
-                Controls.position.Value=string(i);
-                db.update(stack);
-                stack.clear();
-            endif;
-            i=i+1;
-            //doc.store(db);
-        enddo;
-    enddo;
-    db.update(stack);
-    stack.clear();
+    logit("Mission accomplished.");
 endfunction
 
-Procedure Button1Click(Control)
-    sync_all(controls.server.value,controls.database.value);
+Procedure Start(Button)
+    sync_all();
 EndProcedure
+
+function gen_tasks()
+    key_=keys[0];
+    for each metainfo in metadata.constants do
+        todolist.add(key_,"Constants["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[1];
+    for each metainfo in metadata.enums do
+        todolist.add(key_,"Enums["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[2];
+    for each metainfo in metadata.catalogs do
+        todolist.add(key_,"Catalogs["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[3];
+    for each metainfo in metadata.documents do
+        todolist.add(key_,"Documents["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[4];
+    for each metainfo in metadata.chartsofcharacteristictypes do
+        todolist.add(key_,"ChartsOfCharacteristicTypes["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[5];
+    for each metainfo in metadata.informationregisters do
+        todolist.add(key_,"InformationRegisters["""+metainfo.name+"""]");
+    enddo;
+    key_=keys[6];
+    for each metainfo in metadata.accumulationregisters do
+        todolist.add(key_,"AccumulationRegisters["""+metainfo.name+"""]");
+    enddo;
+endfunction
+
+Procedure CommandBargentasks(Button)
+    gen_tasks();
+EndProcedure
+
+keys=new Array();
+keys.add("couchdb.sync_constants");
+keys.add("couchdb.sync_enums");
+keys.add("couchdb.sync_catalogs");
+keys.add("couchdb.sync_documents");
+keys.add("couchdb.sync_chartsofcharacteristictypes");
+keys.add("couchdb.sync_informationregisters");
+keys.add("couchdb.sync_accumulationregisters");

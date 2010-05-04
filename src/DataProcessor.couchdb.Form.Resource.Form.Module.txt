@@ -128,5 +128,5 @@ function _request(method,path=undefined,body=undefined,val headers=undefined,
     else
         headers=_headers;
     endif;
-    return _session.request(method,urllib.join(_url,path),body,headers);
+    return _session.request(method,urllib.join(_url,path),body,headers,params);
 endfunction
