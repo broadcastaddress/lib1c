@@ -1,78 +1,4 @@
-﻿/////////////////////////////////////////////////////////////////////////////
-//  Модуль для конвертации объектов 1С в JSON представление.
-//
-//  Здесь нам требуется максимум скорости, поскольку модуль нужен для
-//  синхронизации 1С с couchdb. Поэтому стараемся не вызывать лишний раз
-//  внешние функции, если можем без особых потерь реализовать схожий алгоритм
-/////////////////////////////////////////////////////////////////////////////
-
-function pack(expr)
-    tval=typeof(expr);
-    // порядок if'ов оптимизирован под частые случаи
-    if tval=type("string") then
-        // забавная фенька...
-        return """"+strreplace(
-                        strreplace(
-                            strreplace(
-                                strreplace(
-                                    strreplace(
-                                        strreplace(expr,
-                                            "\","\\"),
-                                        """","\"""),
-                                    chars.cr,"\n"),
-                                chars.lf,"\r"),
-                            chars.tab,"\t"),
-                        chars.ff,"\f")
-                   +"""";
-    elsif tval=type("number") then
-        return strreplace(string(format(expr,"NZ=0;NDS=.;NGS=''")),chars.nbsp,"");
-    elsif tval=type("date") then
-        return """"+xmlstring(expr)+"""";
-    elsif tval=type("structure") or tval=type("map") then
-        str="";
-        for each item in expr do
-            str=str+","+pack(item.key)+":"+pack(item.value);
-        enddo;
-        return ?(str="","{}","{"+mid(str,2)+"}");
-    elsif tval=type("array") or tval=type("fixedarray") then
-        str="";
-        len=expr.ubound();
-        if len>=0 then
-            str=pack(expr[0]);
-            for i=1 to len do
-                str=str+","+pack(expr[i]);
-            enddo;
-        endif;
-        return "["+str+"]";
-    elsif expr=null then
-        return "null";
-    elsif expr=undefined then
-        return "null";
-    elsif tval=type("boolean") then
-        return ?(expr,"true","false");
-    elsif tval=type("type") then
-        str=string(expr);
-        str=strreplace(str," ","");
-        str=strreplace(str,":",".");
-        return pack(str);
-    elsif check.is_ref(expr) 
-            or tval=type("valuestorage") 
-            or tval=type("binarydata") then
-        return """"+xmlstring(expr)+"""";
-    elsif check.is_enum(expr) then
-        return ?(ValueIsFilled(expr),
-                 pack(metadata.findbytype(tval).fullname()+"."+xmlstring(expr)),
-                 pack("null"));
-    elsif metadata.findbytype(tval)<>undefined then
-        pack(convert.to_structure(expr));
-    else
-        raise exception.ValueError(
-                "Unable to convert expr to json. No rules how to do that.",
-                new Structure("expr",expr));
-    endif;
-endfunction
-
-//function encode(expr)
+﻿//function encode(expr)
 //  Преобразует значение 1С в строку формата JSON
 //
 //    Параметры:
@@ -93,7 +19,7 @@ endfunction
 //                 boolean --> bool
 //                  number --> number
 //                  string --> string
-//                    date --> строка даты стандарта RFC 3339
+//                    date --> string(RFC 3339)
 //                   array --> array
 //                     ref --> строка с UUID
 //               structure --> object
@@ -104,16 +30,13 @@ endfunction
 //              binarydata --> base64-encoded string
 function encode(expr) export
     if metadata.findbytype(typeof(expr))<>undefined then
-        return pack(convert.to_structure(expr));
+        return encoder(convert.to_structure(expr));
     else
-        return pack(expr);
+        return encoder(expr);
     endif;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
-// port of python json module..in some kind
-
-// TODO: здесь можно еще выиграть в скорости на примерно 20-35%
 
 //function decode(jsonstr)
 //  Преобразует строку формата JSON в объект 1С
@@ -137,12 +60,76 @@ endfunction
 //         int,float --> number
 //            string --> string
 //             array --> array
-//            object --> structure
+//            object --> map
 function decode(jsonstr) export
-    if not check.is_string(jsonstr) then
+    if typeof(jsonstr)<>type("string") then
         raise exception.TypeError();
     endif;
-    return scanner(jsonstr,1)[0];
+    res=scanner(jsonstr,1);
+    obj=res[0];end=res[1];
+    end=skip_ws(jsonstr,end);
+    if mid(jsonstr,end,1)<>"" then
+        raise exception.ValueError(errmsg("Training data found",jsonstr,res[1]));
+    endif;
+    return obj;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// PRIVATE
+// Декодирование json сделано по образу и подобию модуля json из python 2.6
+// с оптимизациями под 1С.
+
+function encoder(expr)
+    tval=typeof(expr);
+    // порядок if'ов оптимизирован под частые случаи
+    if tval=type("string") then
+        return """"+strreplace(
+                        strreplace(
+                            strreplace(
+                                strreplace(
+                                    strreplace(
+                                        strreplace(expr,
+                                            "\","\\"),
+                                        """","\"""),
+                                    chars.cr,"\n"),
+                                chars.lf,"\r"),
+                            chars.tab,"\t"),
+                        chars.ff,"\f")
+                   +"""";
+    elsif tval=type("number") then
+        return strreplace(format(expr,"NZ=0;NDS=.;NGS=''"),chars.nbsp,"");
+    elsif tval=type("date") then
+        return encoder(xmlstring(expr));
+    elsif tval=type("structure") or tval=type("map") then
+        res="";
+        for each item in expr do
+            res=res+","+encoder(item.key)+":"+encoder(item.value);
+        enddo;
+        return ?(res="","{}","{"+mid(res,2)+"}");
+    elsif tval=type("array") or tval=type("fixedarray") then
+        res="";l=expr.ubound();
+        if l>=0 then
+            res=encoder(expr[0]);
+            for i=1 to l do
+                res=res+","+encoder(expr[i]);
+            enddo;
+        endif;
+        return "["+res+"]";
+    elsif expr=undefined or expr=null then
+        return "null";
+    elsif tval=type("boolean") then
+        return ?(expr,"true","false");
+    elsif tval=type("type") then
+        return encoder(strreplace(strreplace(string(expr)," ",""),":","."));
+    elsif metadata.findbytype(tval)<>undefined then
+        return encoder(metautils.get_uuid(expr));
+    elsif tval=type("valuestorage") or tval=type("binarydata") then
+        return encoder(xmlstring(expr));
+    else
+        raise exception.ValueError(
+                "Unable to convert expr to json. No rules how to do that.",
+                new Structure("expr",expr));
+    endif;
 endfunction
 
 function scanner(s,idx=1)
@@ -154,7 +141,6 @@ function scanner(s,idx=1)
     elsif c="""" then
         return json_string(s,idx+1);
     else
-        // may earn some speed from here later
         lexicon=new Structure("constant,number",
                               "(-?Infinity|NaN|true|false|null)",
                               "(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?");
@@ -177,17 +163,14 @@ function scanstring(s,i)
     chunks=new Array();
     begin=i-1;
     while True do
-        // is there way to handle this better?
-        //chunk=re.match(s,"(.*?)([""\\\x00-\x1f])",i);
-        // yes, we won 13%, but it's still slow
         chunk="";
         pos=i;
         ls=strlen(s);
         c=mid(s,pos,1);
-        // bottle neck below
-        while pos<=ls and not (c="""" or c="\" or charCode(c)<32) do
-            pos=pos+1;c=mid(s,pos,1);
-        enddo;
+        execute("
+        |while pos<=ls and not (c="""""""" or c=""\"" or charCode(c)<32) do
+        |    pos=pos+1;c=mid(s,pos,1);
+        |enddo;");
         terminator=c;
         if terminator="" then
             raise exception.ValueError(
@@ -251,6 +234,7 @@ function scanstring(s,i)
             end = next_end
         endif;
         chunks.add(m);
+        i=end;
     enddo;
     res="";
     for each c in chunks do
@@ -270,11 +254,9 @@ function json_object(s,end)
         return pair(pairs,end);
     endif;
     if nextchar<>"""" then
-        raise exception.ValueError(
-                            errmsg("Expecting property name",s,end));
+        raise exception.ValueError(errmsg("Expecting property name",s,end));
     endif;
     end=end+1;
-    strict=True;
     while True do
         res=scanstring(s,end);
         key_=res[0];
@@ -282,14 +264,12 @@ function json_object(s,end)
         end=skip_ws(s,end);
         c=mid(s,end,1);
         if c<>":" then
-            raise exception.ValueError(
-                            errmsg("Expecting `:` delimiter",s,end));
+            raise exception.ValueError(errmsg("Expecting `:` delimiter",s,end));
         endif;
         end=skip_ws(s,end+1);
         res=scanner(s,end);
         if res=undefined then
-            raise exception.ValueError(
-                            errmsg("Expecting object",s,end));
+            raise exception.ValueError(errmsg("Expecting object",s,end));
         endif;
         value=res[0];
         end=res[1];
@@ -301,15 +281,13 @@ function json_object(s,end)
             break;
         endif;
         if nextchar<>"," then
-            raise exception.ValueError(
-                            errmsg("Expecting , delimiter",s,end-1));
+            raise exception.ValueError(errmsg("Expecting `,` delimiter",s,end-1));
         endif;
         end=skip_ws(s,end);
         nextchar=mid(s,end,1);
         end=end+1;
         if nextchar<>"""" then
-            raise exception.ValueError(
-                            errmsg("Expecting property name",s,end-1));
+            raise exception.ValueError(errmsg("Expecting property name",s,end-1));
         endif;
     enddo;
     return pair(pairs,end);
@@ -364,15 +342,15 @@ function json_number(m)
     return pair(res,m.end);
 endfunction
 
-function errmsg(msg,doc,pos,end=undefined)
-    return msg+" "+doc+" (char "+pos+")";
-endfunction
-
 function skip_ws(s,pos)
-    // used instead of regexp for speedup
-    w=chars.cr+chars.lf+chars.vtab+chars.tab+chars.nbsp;
-    while find(w,mid(s,pos,1))<>0 do
+    w=chars.cr+chars.lf+chars.vtab+chars.tab+chars.nbsp+" ";
+    l=strlen(s);
+    while find(w,mid(s,pos,1))<>0 and pos<=l do
         pos=pos+1;
     enddo;
     return pos;
+endfunction
+
+function errmsg(msg,doc,pos,end=undefined)
+    return msg+" "+doc+" (char "+pos+")";
 endfunction
