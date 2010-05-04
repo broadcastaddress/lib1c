@@ -1,0 +1,260 @@
+﻿function set_up() export
+    
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    // наша реализация json.decode более общая и не требует object или array 
+    // для преобразования в обязательном порядке.
+    //suite.add("decode__JsonPayloadShouldBeAnObjectOrArray__Fail");
+    suite.add("decode__UnclosedArray__ValueError");
+    suite.add("decode__KeysMustBeQuoted__ValueError");
+    suite.add("decode__ExtraCommaInArray__ValueError");
+    suite.add("decode__DoubleExtraComma__ValueError");
+    suite.add("decode__MissingValue__ValueError");
+    suite.add("decode__CommaAfterTheClose__ValueError");
+    suite.add("decode__ExtraClose__ValueError");
+    suite.add("decode__ExtraCommaInObject__ValueError");
+    suite.add("decode__ExtraValueAfterClose__ValueError");
+    suite.add("decode__IllegalExpression__ValueError");
+    suite.add("decode__IllegalInvocation__ValueError");
+    suite.add("decode__NumbersCannotHaveLeadingZeroes__ValueError");
+    suite.add("decode__NumbersCannotBeHex__ValueError");
+    suite.add("decode__IllegalBackslashEscape1__ValueError");
+    suite.add("decode__IllegalBackslashEscape2__ValueError");
+    suite.add("decode__IllegalBackslashEscape3__ValueError");
+    //suite.add("decode__TooDeep__ValueError"); //поддерживаем любую вложенность
+    suite.add("decode__MissingColon__ValueError");
+    suite.add("decode__DoubleColon__ValueError");
+    suite.add("decode__CommaInsteadOfColon__ValueError");
+    suite.add("decode__ColonInsteadOfComma__ValueError");
+    suite.add("decode__BadValue__ValueError");
+    suite.add("decode__SingleQuote__ValueError");
+    suite.add("decode__TabCharacterInString__ValueError");
+    suite.add("decode__EscapedTabCharacterInString__ValueError");
+    suite.add("decode__LineBreak__ValueError");
+    suite.add("decode__EscapedLineBreak__ValueError");
+    suite.add("decode__InvalidNumber1__ValueError");
+    suite.add("decode__InvalidNumber2__ValueError");
+    suite.add("decode__InvalidNumber3__ValueError");
+    suite.add("decode__CommaInsteadOfClosingBrace__ValueError");
+    suite.add("decode__MismatchClosingBrace__ValueError");
+    suite.add("decode__ValidValue1__Pass");
+    suite.add("decode__ValidValue2__Pass");
+    suite.add("decode__ValidValue3__Pass");
+    return suite;
+endfunction
+
+function tear_down() export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function decode__JsonPayloadShouldBeAnObjectOrArray__Fail() export
+    json.decode("""A JSON payload should be an object or array, not a string.""");
+endfunction
+
+function decode__UnclosedArray__ValueError() export
+    json.decode("[""Unclosed array""");
+endfunction
+
+function decode__KeysMustBeQuoted__ValueError() export
+    json.decode("{unquoted_key: ""keys must be quoted}");
+endfunction
+
+function decode__ExtraCommaInArray__ValueError() export
+    json.decode("[""extra comma"",]");
+endfunction
+
+function decode__DoubleExtraComma__ValueError() export
+    json.decode("[""double extra comma"",,]");
+endfunction
+
+function decode__MissingValue__ValueError() export
+    json.decode("[   , ""<-- missing value""]");
+endfunction
+
+function decode__CommaAfterTheClose__ValueError() export
+    json.decode("[""Comma after the close""],");
+endfunction
+
+function decode__ExtraClose__ValueError() export
+    json.decode("[""Extra close""]]");
+endfunction
+
+function decode__ExtraCommaInObject__ValueError() export
+    json.decode("{""Extra comma"": true,}");
+endfunction
+
+function decode__ExtraValueAfterClose__ValueError() export
+    json.decode("{""Extra value after close"": true} ""misplaced quoted value""");
+endfunction
+
+function decode__IllegalExpression__ValueError() export
+    json.decode("{""Illegal expression"": 1 + 2}");
+endfunction
+
+function decode__IllegalInvocation__ValueError() export
+    json.decode("{""Illegal invocation"": alert()}");
+endfunction
+
+function decode__NumbersCannotHaveLeadingZeroes__ValueError() export
+    json.decode("{""Numbers cannot have leading zeroes"": 013}");
+endfunction
+
+function decode__NumbersCannotBeHex__ValueError() export
+    json.decode("{""Numbers cannot be hex"": 0x14}");
+endfunction
+
+function decode__IllegalBackslashEscape1__ValueError() export
+    json.decode("[""Illegal backslash escape: \x15""]");
+endfunction
+
+function decode__IllegalBackslashEscape2__ValueError() export
+    json.decode("[""Illegal backslash escape: \'""]");
+endfunction
+
+function decode__IllegalBackslashEscape3__ValueError() export
+    json.decode("[""Illegal backslash escape: \017""]");
+endfunction
+
+function decode__TooDeep__ValueError() export
+    json.decode("[[[[[[[[[[[[[[[[[[[[""Too deep""]]]]]]]]]]]]]]]]]]]]");
+endfunction
+
+function decode__MissingColon__ValueError() export
+    json.decode("{""Missing colon"" null}");
+endfunction
+
+function decode__DoubleColon__ValueError() export
+    json.decode("{""Double colon"":: null}");
+endfunction
+
+function decode__CommaInsteadOfColon__ValueError() export
+    json.decode("{""Comma instead of colon"", null}");
+endfunction
+
+function decode__ColonInsteadOfComma__ValueError() export
+    json.decode("[""Colon instead of comma"": false]");
+endfunction
+
+function decode__BadValue__ValueError() export
+    json.decode("[""Bad value"", truth]");
+endfunction
+
+function decode__SingleQuote__ValueError() export
+    json.decode("['single quote']");
+endfunction
+
+function decode__TabCharacterInString__ValueError() export
+    json.decode("[""	tab	character	in	string	""]");
+endfunction
+
+function decode__EscapedTabCharacterInString__ValueError() export
+    json.decode("[""tab\	character\	in\	string\	""]");
+endfunction
+
+function decode__LineBreak__ValueError() export
+    json.decode("[""line
+          |break""]");
+endfunction
+
+function decode__EscapedLineBreak__ValueError() export
+    json.decode("[""line\
+          |break""]");
+endfunction
+
+function decode__InvalidNumber1__ValueError() export
+    json.decode("[0e]");
+endfunction
+
+function decode__InvalidNumber2__ValueError() export
+    json.decode("[0e+]");
+endfunction
+
+function decode__InvalidNumber3__ValueError() export
+    json.decode("[0e+-1]");
+endfunction
+
+function decode__CommaInsteadOfClosingBrace__ValueError() export
+    json.decode("{""Comma instead of closing brace"": true,");
+endfunction
+
+function decode__MismatchClosingBrace__ValueError() export
+    json.decode("[""mismatch""}");
+endfunction
+
+function decode__ValidValue1__Pass() export
+    json.decode("[
+|    ""JSON Test Pattern pass1"",
+|    {""object with 1 member"":[""array with 1 element""]},
+|    {},
+|    [],
+|    -42,
+|    true,
+|    false,
+|   null,
+|    {
+|        ""integer"": 1234567890,
+|        ""real"": -9876.543210,
+|        ""e"": 0.123456789e-12,
+|        ""E"": 1.234567890E+34,
+|        """":  23456789012E66,
+|        ""zero"": 0,
+|        ""one"": 1,
+|        ""space"": "" "",
+|        ""quote"": ""\"""",
+|        ""backslash"": ""\\"",
+|        ""controls"": ""\b\f\n\r\t"",
+|        ""slash"": ""/ & \/"",
+|        ""alpha"": ""abcdefghijklmnopqrstuvwyz"",
+|        ""ALPHA"": ""ABCDEFGHIJKLMNOPQRSTUVWYZ"",
+|        ""digit"": ""0123456789"",
+|        ""0123456789"": ""digit"",
+|        ""special"": ""`1~!@#$%^&*()_+-={':[,]}|;.</>?"",
+|        ""hex"": ""\u0123\u4567\u89AB\uCDEF\uabcd\uef4A"",
+|        ""true"": true,
+|        ""false"": false,
+|        ""null"": null,
+|        ""array"":[  ],
+|        ""object"":{  },
+|        ""address"": ""50 St. James Street"",
+|        ""url"": ""http://www.JSON.org/"",
+|        ""comment"": ""// /* <!-- --"",
+|        ""# -- --> */"": "" "",
+|        "" s p a c e d "" :[1,2 , 3
+|
+|,
+|
+|4 , 5        ,          6           ,7        ],""compact"":[1,2,3,4,5,6,7],
+|        ""jsontext"": ""{\""object with 1 member\"":[\""array with 1 element\""]}"",
+|        ""quotes"": ""&#34; \u0022 %22 0x22 034 &#x22;"",
+|        ""\/\\\""\uCAFE\uBABE\uAB98\uFCDE\ubcda\uef4A\b\f\n\r\t`1~!@#$%^&*()_+-=[]{}|;:',./<>?""
+|: ""A key can be any string""
+|    },
+|    0.5 ,98.6
+|,
+|99.44
+|,
+|
+|1066,
+|1e1,
+|0.1e1,
+|1e-1,
+|1e00,2e+00,2e-00
+|,""rosebud""]");
+endfunction
+
+function decode__ValidValue2__Pass() export
+    json.decode("[[[[[[[[[[[[[[[[[[[""Not too deep""]]]]]]]]]]]]]]]]]]]");
+endfunction
+
+function decode__ValidValue3__Pass() export
+    json.decode("{
+|    ""JSON Test Pattern pass3"": {
+|        ""The outermost value"": ""must be an object or array."",
+|        ""In this test"": ""It is an object.""
+|    }
+|}");
+endfunction

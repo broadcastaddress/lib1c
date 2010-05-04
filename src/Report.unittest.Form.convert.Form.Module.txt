@@ -1,0 +1,256 @@
+﻿function set_up() export
+    
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    suite.add("to_array__NullConvertionFail__TypeError");
+    suite.add("to_array__NumberConvertionFail__TypeError");
+    suite.add("to_array__DateConvertionFail__TypeError");
+    suite.add("to_array__UndefinedConvertionMakesEmptyArray__Pass");
+    suite.add("to_array__StringConvertionMakesArrayOfChars__Pass");
+    suite.add("to_array__ArrayConvertionDoesNothing__Pass");
+    suite.add("to_array__FixedArrayBecomesArrayWithSameValues__Pass");
+    suite.add("to_array__StructureAndMapsConvertsToArrayOfPairsForKeysAndValues__Pass");
+    suite.add("to_boolean__AlwaysTrue");
+    suite.add("to_boolean__AlwaysFalse");
+    suite.add("to_number__NullConvertionFail__TypeError");
+    suite.add("to_number__UndefinedConvertsToZero__Pass");
+    suite.add("to_number__NumberArgumentDoesNothing__Pass");
+    suite.add("to_number__ValidStringNumber__Pass");
+    suite.add("to_number__InvalidStringSpacedNumber__ValueError");
+    suite.add("to_number__InvalidStringNumberMinus__ValueError");
+    suite.add("to_number__InvalidStringNumberPlus__ValueError");
+    suite.add("to_number__InvalidStringNumberSpaces__ValueError");
+    suite.add("to_number__InvalidStringNumberDot__ValueError");
+    suite.add("to_number__InvalidStringNumberComma__ValueError");
+    suite.add("to_number__AllCommonCharactersMakesFail__ValueError");
+    suite.add("to_number__EnglishCharsMakesFail__ValueError");
+    suite.add("to_number__RussianCharsMakesFail__ValueError");
+    suite.add("to_number__EmptyStringMakesFail__ValueError");
+    suite.add("to_number__SpecialCharsMakesFail__ValueError");
+    suite.add("to_string__NullValue");
+    suite.add("to_string__UndefinedValue");
+    suite.add("to_string__BooleanValue");
+    suite.add("to_string__NumericValueToStringWithoutSpaceDelimeters");
+    suite.add("to_string__StringValue");
+    suite.add("to_string__StringValueToQuotedString");
+    suite.add("to_string__DateToStringAsByRfc3339");
+    suite.add("to_string__ArrayToJsonLikeArrayString");
+    suite.add("to_string__StructureToJsonLikeObjectString");
+    suite.add("to_string__MapToJsonLikeObjectString");
+    suite.add("to_string__TypeToValidTypeName");
+    suite.add("to_string__ValueStorageToBase64EncodedString");
+    suite.add("to_string__BinaryDataToBase64EncodedString");
+    suite.add("to_string__AnyOtherUnsupportedObjectToStringRepresention");
+    return suite;
+endfunction
+
+function tear_down() export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function to_array__NullConvertionFail__TypeError() export
+    convert.to_array(null);
+endfunction
+
+function to_array__NumberConvertionFail__TypeError() export
+    convert.to_array(values.numbers.integer);
+endfunction
+
+function to_array__DateConvertionFail__TypeError() export
+    convert.to_array(values.dates.currentdate);
+endfunction
+
+function to_array__UndefinedConvertionMakesEmptyArray__Pass() export
+    res=convert.to_array(undefined);
+    assert.is_array(res);
+    assert(not ValueIsFilled(res));
+endfunction
+
+function to_array__StringConvertionMakesArrayOfChars__Pass() export
+    s=values.strings.all;
+    res=convert.to_array(s);
+    assert.is_array(res);
+    for i=0 to res.ubound() do
+        assert(res[i]=mid(s,i+1,1));
+    enddo;
+endfunction
+
+function to_array__ArrayConvertionDoesNothing__Pass() export
+    res=convert.to_array(values.arrays.numeric);
+    assert(res=values.arrays.numeric);
+endfunction
+
+function to_array__FixedArrayBecomesArrayWithSameValues__Pass() export
+    res=convert.to_array(values.fixedarrays.numeric);
+    for i=0 to res.ubound() do
+        assert.is_equal(res[i],values.fixedarrays.numeric[i]);
+    enddo;
+endfunction
+
+function to_array__StructureAndMapsConvertsToArrayOfPairsForKeysAndValues__Pass() export
+    res=convert.to_array(values);
+    for each item in res do
+        assert(values.property(item[0]));
+        assert(values[item[0]]=item[1]);
+    enddo;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function to_boolean__AlwaysTrue() export
+    assert(convert.to_boolean(values.booleans.true));
+    for each item in values.numbers do
+        if item.value<>0 then
+            assert.is_true(convert.to_boolean(item.value));
+        endif;
+    enddo;
+    for each item in values.strings do
+        if item.value<>"" then
+            assert.is_true(convert.to_boolean(item.value));
+        endif;
+    enddo;
+    for each item in values.arrays do
+        if item.key<>"empty" then
+            assert.is_true(convert.to_boolean(item.value));
+        endif;
+    enddo;
+endfunction
+
+function to_boolean__AlwaysFalse() export
+    assert.is_false(convert.to_boolean(values.booleans.false));
+    assert.is_false(convert.to_boolean(values.numbers.zero));
+    assert.is_false(convert.to_boolean(values.strings.empty));
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function to_number__NullConvertionFail__TypeError() export
+    convert.to_number(null);
+endfunction
+
+function to_number__UndefinedConvertsToZero__Pass() export
+    assert.is_equal(convert.to_number(undefined),0);
+endfunction
+
+function to_number__NumberArgumentDoesNothing__Pass() export
+    for each item in values.numbers do
+        assert.is_equal(convert.to_number(item.value),item.value);
+    enddo;
+endfunction
+
+function to_number__ValidStringNumber__Pass() export
+    assert.is_number(convert.to_number(values.strings.digits));
+    assert.is_number(convert.to_number(values.strings.digits2));
+endfunction
+
+function to_number__InvalidStringSpacedNumber__ValueError() export
+    convert.to_number("-7 910 123 45 67");
+endfunction
+
+function to_number__InvalidStringNumberMinus__ValueError() export
+    convert.to_number("-");
+endfunction
+
+function to_number__InvalidStringNumberPlus__ValueError() export
+    convert.to_number("+");
+endfunction
+
+function to_number__InvalidStringNumberSpaces__ValueError() export
+    convert.to_number("                       ");
+endfunction
+
+function to_number__InvalidStringNumberDot__ValueError() export
+    convert.to_number(".");
+endfunction
+
+function to_number__InvalidStringNumberComma__ValueError() export
+    convert.to_number(",");
+endfunction
+
+function to_number__AllCommonCharactersMakesFail__ValueError() export
+    convert.to_number(values.strings.all);
+endfunction
+
+function to_number__EnglishCharsMakesFail__ValueError() export
+    convert.to_number(values.strings.en_alpha_lcase);
+endfunction
+
+function to_number__RussianCharsMakesFail__ValueError() export
+    convert.to_number(values.strings.ru_alpha_lcase);
+endfunction
+
+function to_number__EmptyStringMakesFail__ValueError() export
+    convert.to_number(values.strings.empty);
+endfunction
+
+function to_number__SpecialCharsMakesFail__ValueError() export
+    convert.to_number(values.strings.spec_chars2);
+endfunction
+
+function to_number__EvenMooCannotPass__ValueError() export
+    convert.to_number(values.strings.moo);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function to_string__NullValue() export
+    assert.is_equal(convert.to_string(null),"null");
+endfunction
+
+function to_string__UndefinedValue() export
+    assert.is_equal(convert.to_string(undefined),"undefined");
+endfunction
+
+function to_string__BooleanValue() export
+    assert.is_equal(convert.to_string(true),"true");
+    assert.is_equal(convert.to_string(false),"false");
+endfunction
+
+function to_string__NumericValueToStringWithoutSpaceDelimeters() export
+    assert.is_equal(convert.to_string(123456.789),"123456.789");
+endfunction
+
+function to_string__StringValue() export
+    assert.is_equal(convert.to_string(values.strings.moo),values.strings.moo);
+endfunction
+
+function to_string__StringValueToQuotedString() export
+    assert.is_equal(convert.to_string(values.strings.all,True),""""+values.strings.all+"""");
+endfunction
+
+function to_string__DateToStringAsByRfc3339() export
+    assert.regex_match(convert.to_string(values.dates.currentdate),"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})");
+endfunction
+
+function to_string__ArrayToJsonLikeArrayString() export
+    
+endfunction
+
+function to_string__StructureToJsonLikeObjectString() export
+    
+endfunction
+
+function to_string__MapToJsonLikeObjectString() export
+    
+endfunction
+
+function to_string__TypeToValidTypeName() export
+    
+endfunction
+
+function to_string__ValueStorageToBase64EncodedString() export
+    
+endfunction
+
+function to_string__BinaryDataToBase64EncodedString() export
+    
+endfunction
+
+function to_string__AnyOtherUnsupportedObjectToStringRepresention() export
+    
+endfunction
+

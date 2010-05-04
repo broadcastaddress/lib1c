@@ -1,0 +1,83 @@
+﻿var errors;
+
+function expand_name(name)
+    l=strlen(name);
+    for i=2 to l do
+        cc=charcode(mid(name,i,1));
+        if (cc>=60 and cc<=90) 
+            or (cc>=48 and cc<=57) 
+            or (cc>=1040 and cc<=1071) 
+        then
+            name=mid(name,1,i-1)+" "+mid(name,i);
+            i=i+1;
+        endif;
+    enddo;
+    return strreplace(name,"_"," ");
+endfunction
+
+function reg_error()
+endfunction
+
+function start()
+    total=0;
+    failed=0;
+    UnittestReport.rows.clear();
+    errors=new map();
+    for each item in thisobject.run() do
+        module_row=UnittestReport.rows.add();
+        module_row.name=item.name;
+        for each test in item.tests do
+            test_row=module_row.rows.add();
+            test_row.name=test.value.name;
+            test_row.behavior=test.value.behavior;
+            test_row.result=test.value.result;
+            if test.value.property("tests") then
+                for each subtest in test.value.tests do
+                    row=test_row.rows.add();
+                    row.name=expand_name(subtest.name);
+                    row.behavior=subtest.behavior;
+                    row.result=subtest.result;
+                    total=total+1;
+                    if subtest.result=unittest.result.FAILED then
+                        failed=failed+1;
+                        test_row.result=unittest.result.FAILED;
+                        controls.UnittestReport.expand(test_row,True);
+                        row.rowid=string(new uuid());
+                        errors.insert(row.rowid,subtest.error);
+                    endif;
+                enddo;
+            endif;
+            if test_row.result<>unittest.result.FAILED then
+                test_row.result=unittest.result.PASSED;
+            endif;
+        enddo;
+        module_row.result=test_row.result;
+    enddo;
+    controls.ProgressBar.maxValue=total;
+    controls.ProgressBar.value=total-failed;
+    controls.ProgressBar.tooltip="( "+ProgressBar+" / "+controls.ProgressBar.MaxValue+" )";
+endfunction
+
+Procedure PressMakeButton(Button)
+    start();
+EndProcedure
+
+Procedure UnittestReportOnActivateRow(Control)
+    for each row in controls.UnittestReport.SelectedRows do
+        errorinfo=errors.get(row.rowid);
+        if errorinfo=undefined then
+            errorinfo="";
+        endif;
+        controls.info.value=errorinfo;
+        break;
+    enddo;
+EndProcedure
+
+Procedure OnOpen()
+    start();
+EndProcedure
+
+
+
+
+

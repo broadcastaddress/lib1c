@@ -1,0 +1,56 @@
+﻿var phrase1;
+var keypass1;
+var phrase2;
+var keypass2;
+
+function set_up() export
+    phrase1="Hello, world!";
+    keypass1="KeyPass";
+    phrase2="Привет, мир!";
+    keypass2="|<@K0|/|-т0$L0}|{|-|b|йP@$$\/\/0R|)";
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    suite.add("rc4__Encode");
+    suite.add("rc4__Decode");
+    suite.add("rc4__EncodeUnicode");
+    suite.add("rc4__DecodeUnicode");
+    return suite;
+endfunction
+
+function tear_down() export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function rc4__Encode() export
+    res=crypt.rc4(phrase1,keypass1);
+    assert.is_string(res);
+    assert.is_equal(res,char(150)+char(80)+char(53)+char(187)+char(33)
+                                 +char(166)+char(216)+char(187)+char(177)
+                                 +char(115)+char(74)+char(28)+char(135));
+endfunction
+
+function rc4__EncodeUnicode() export
+    res=crypt.rc4(phrase2,keypass2);
+    assert.is_string(res);
+    assert.is_equal(res,char(240)+char(77)+char(75)+char(76)+char(208)
+                                 +char(42)+char(27)+char(203)+char(180)
+                                 +char(39)+char(195)+char(22)+char(67)
+                                 +char(155)+char(95)+char(208)+char(87)
+                                 +char(108)+char(135)+char(238)+char(202));
+endfunction
+
+function rc4__Decode() export
+    res=crypt.rc4(phrase1,keypass1);
+    assert.is_string(res);
+    assert.is_equal(crypt.rc4(res,keypass1),phrase1);
+endfunction
+
+function rc4__DecodeUnicode() export
+    res=crypt.rc4(phrase2,keypass2);
+    assert.is_string(res);
+    assert.is_equal(crypt.rc4(res,keypass2),phrase2);
+endfunction

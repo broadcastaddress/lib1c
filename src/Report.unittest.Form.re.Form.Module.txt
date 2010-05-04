@@ -1,0 +1,62 @@
+﻿function set_up() export
+
+endfunction
+
+function get_suite() export
+    suite=new array();
+    suite.add("findall__PositiveSearch");
+    suite.add("test__ConstantCaseSensitivePositive");
+    suite.add("test__ConstantCaseSensitiveNegative");
+    suite.add("test__ConstantCaseInsensitive");
+    suite.add("test__ExpressionPositive");
+    suite.add("test__ExpressionNegative");
+    return suite;
+endfunction
+
+function tear_down() export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function findall__PositiveSearch() export
+    res=re.findall("Split this words into array","\S+");
+    assert.is_array(res);
+    assert.is_equal(res[0],"Split");
+    assert.is_equal(res[1],"this");
+    assert.is_equal(res[2],"words");
+    assert.is_equal(res[3],"into");
+    assert.is_equal(res[4],"array");
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function test__ConstantCaseSensitivePositive() export
+    res=re.test("Hello, world","Hello");
+    assert.is_boolean(res);
+    assert(res);
+endfunction
+
+function test__ConstantCaseSensitiveNegative() export
+    res=re.test("Hello, world","hello");
+    assert.is_boolean(res);
+    assert(not res);
+endfunction
+
+function test__ConstantCaseInsensitive() export
+    res=re.test("Hello, world","/hello/i");
+    assert.is_boolean(res);
+    assert(res);
+endfunction
+
+function test__ExpressionPositive() export
+    res=re.test(values.strings.digits,"\d+");
+    assert.is_boolean(res);
+    assert(res);
+endfunction
+
+function test__ExpressionNegative() export
+    res=re.test(values.strings.en_alpha_lcase,"\d+");
+    assert.is_boolean(res);
+    assert(not res);
+endfunction
