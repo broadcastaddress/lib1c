@@ -4,7 +4,7 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function request(url="",method="GET",query=undefined,headers=undefined) export
+function Request(url="",method="GET",query=undefined,headers=undefined) export
     if not check.is_string(url) then
         msg="Request url must be string type";
         raise exception.TypeError(msg,new Structure("url,method",url,method));
@@ -57,11 +57,11 @@ function _prepare_request(req)
             raise exception.TypeError(msg,s);
         endif;
     enddo;
-    if req.method="GET" or req.method="HEAD" then
+    if req.method="GET" or req.method="HEAD" or req.method="DELETE" then
         req.insert("send",Null);
     else
         if check.is_structure_or_map(req.query) then
-            req.insert("send",Null);//split_query(req.query));
+            req.insert("send",query_encode(req.query));
         else
             req.insert("send",req.query);
         endif;
@@ -75,12 +75,16 @@ endfunction
 function send(req) export
     _prepare_request(req);
     try
-        XMLHTTPRequest=new COMObject("Msxml2.XMLHTTP");
+        XMLHTTPRequest=new COMObject("MSXML2.XMLHTTP.3.0");
     except
         try
-            XMLHTTPRequest=new COMObject("Microsoft.XMLHTTP");
+            XMLHTTPRequest=new COMObject("Msxml2.XMLHTTP");
         except
-            raise XMLHTTPError(errorInfo().description);
+            try
+                XMLHTTPRequest=new COMObject("Microsoft.XMLHTTP");
+            except
+                raise XMLHTTPError(errorInfo().description);
+            endtry;
         endtry;
     endtry;
     try
@@ -88,6 +92,8 @@ function send(req) export
         for each item in req.headers do
             XMLHTTPRequest.setRequestHeader(item.key,item.value);
         enddo;
+        // force to disable IE cache
+        XMLHTTPRequest.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
         XMLHTTPRequest.send(req.send);
     except
         raise XMLHTTPError(
@@ -223,7 +229,7 @@ function urlsplit(url) export
                     try
                         urlstruct.port=number(port);
                     except
-                        raise exception.ValueError();
+                        raise exception.ValueError("uri port must be number",new Structure("port,urlstruct",port,urlstruct));
                     endtry;
                 endif;
             endif;
@@ -497,7 +503,7 @@ function query_encode(q) export
                 s=s+"[]="+lower(quote(p.value,""));
             enddo;
         else
-            s=s+"="+quote(p.value,"");
+            res=res+"="+quote(p.value,"");
         endif;
     enddo;
     return mid(res,2);

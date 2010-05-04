@@ -1,6 +1,9 @@
 ﻿function failureException(msg,defaultMsg,kwargs=undefined,env=undefined)
     defaultMsg=string.reformat(defaultMsg,kwargs);
     msg=?(msg=undefined,defaultMsg,defaultMsg+":"+chars.cr+msg);
+    if env=undefined then
+        env=kwargs;
+    endif;
     assert(False,msg,env);
 endfunction
 
@@ -14,7 +17,7 @@ endfunction
 
 function is_true(expr,msg=undefined,env=undefined) export
     if not check.is_true(expr) then
-        defaultMsg="The {expr} is a lie!";
+        defaultMsg="The `{expr}` is a lie!";
         failureException(msg,defaultMsg,new Structure("expr",expr),env);
     endif;
     return True;
@@ -24,7 +27,7 @@ endfunction
 
 function is_false(expr,msg=undefined,env=undefined) export
     if not check.is_false(expr) then
-        defaultMsg="The {expr} is not False/Empty/undefined";
+        defaultMsg="The `{expr}` is not False/Empty/undefined";
         failureException(msg,defaultMsg,new Structure("expr",expr),env);
     endif;
     return True;
@@ -418,7 +421,7 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function is_regex_matches(text,pattern,msg=undefined,env=undefined) export
+function regex_match(text,pattern,msg=undefined,env=undefined) export
     if not check.regex_match(text,pattern) then
         defaultMsg="RegExp didn't match: {pattern} not found in {text}";
         failureException(msg,defaultMsg,new Structure("pattern,text",pattern,text),env);

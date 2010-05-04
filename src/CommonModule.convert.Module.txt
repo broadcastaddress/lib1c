@@ -1,18 +1,17 @@
 ﻿//function to_array(value)
 //  Конвертирует value в массив.
 //
-//    Параметры:
+//  Параметры:
 //      value <any> -- значение, которое нужно конвертировать
 //
-//    Возвращает:
+//  Возвращает:
 //      <array>
 //
-//    Исключения:
+//  Исключения:
 //      TypeError -- при невозможности конвертации
 //
 //    Описание:
 //      Правила конвертации:
-//               null -- null
 //          undefined -- новый пустой массив
 //             string -- массив символов строки
 //              array -- без изменений
@@ -20,9 +19,7 @@
 //     structure, map -- возвращает массив массивов (key,value)
 function to_array(value) export
     tval=typeof(value);
-    if value=null then
-        return null;
-    elsif value=undefined then
+    if value=undefined then
         return new Array();
     elsif tval=type("string") then
         res=new Array();
@@ -60,18 +57,20 @@ endfunction
 
 //function to_boolean(value)
 //  Конвертирует value в значение типа <boolean>
-//  
-//    Параметры:
-//         value <any> -- значение, которое нужно конвертировать
 //
-//    Возвращает:
+//  Параметры:
+//      value <any> -- значение, которое нужно конвертировать
+//
+//  Возвращает:
 //      <boolean>
 //
-//    Описание:
+//  Описание:
 //      Правила конвертации:
 //                   boolean -- boolean
 //          metadata_objects -- если есть ссылка и она пустая, то false,
 //                              во всех прочих случаях true
+//                    string -- если строка нулевой длинны, то возвращается false
+//                              иначе true.
 //      Для всех прочих возвращается результат функции ValueIsFilled()
 function to_boolean(value) export
     tval=typeof(value);
@@ -82,6 +81,9 @@ function to_boolean(value) export
         FillPropertyValues(s,value);
         return ?(s.ref=null,True,not s.ref.ref.isempty());
     else
+        if tval=type("string") then
+            return strlen(value)>0;
+        endif;
         return ValueIsFilled(value);
     endif;
 endfunction
@@ -89,12 +91,15 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function to_number(value,base=10)
-//  Конвертирует value в значение типа <number>
+//  Конвертирует `value` в значение типа <number>
 //  
-//    Параметры:
-//         value <any> -- значение, которое нужно конвертировать
+//  Параметры:
+//      value <any> -- значение, которое нужно конвертировать
+//       base <number> -- система исчисления из которой нужно 
+//                        конвертировать значение. Используется
+//                        если `value` <string>
 //
-//    Возвращает:
+//  Возвращает:
 //      <number>
 //
 //    Исключения:
@@ -102,16 +107,14 @@ endfunction
 //
 //    Описание:
 //      Правила конвертации:
-//               null -- null
-//          undefined -- 0;
+//          undefined -- 0
 //            boolean -- True=1,False=0
 //             number -- без изменений
 //             string -- перевод в число из системы base
+//              array -- если `value` является бинарным массивом
 function to_number(value,base=10) export
     tval=typeof(value);
-    if value=null then
-        return null;
-    elsif value=undefined then
+    if value=undefined then
         return 0;
     elsif tval=type("boolean") then
         return ?(value,1,0);
@@ -120,16 +123,25 @@ function to_number(value,base=10) export
     elsif tval=type("string") then
         if base=10 then
             try
-                return number(value);
+                return number(trimall(value));
             except
                 raise exception.ValueError(
                     "Unable to convert value to number",
                     new Structure("type,value",typeof(value),value)
                 );
             endtry;
+        elsif base=16 then
+            return _hex2dec(value);
+        elsif base=2 then
+            return _bin2dec(value);
+        elsif base=8 then
+            //return _oct2dec(value);
+        elsif base>2 then
         else
-            return to_dec(value);
+            raise exception.ValueError();
         endif;
+    elsif check.is_binarr(value) then
+        return _binarr2dec(value);
     else
         raise exception.TypeError(
             "Unable to convert value to number",
@@ -141,46 +153,61 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function to_string(value,in_quotes=False)
+//  Конвертирует переданное значение в строку. Параметр in_quotes позволяет
+//  автоматически обернуть строку в кавычки, если задан как True.
 //
-// Converts any value to string type.
+//    Параметры:
+//          value <any>     -- значение, которое нужно конвертировать
+//      in_quotes <boolean> -- оборачивать в кавычки или нет.
 //
-// It works doesnt like analog of string() function, but
-// following this rules:
-// - null:
-//            return Null
-// - undefined:
-//            return ""
-// - boolean:
-//            return True or False as string
-// - number:
-//            return string representation of number without any group 
-//            delimeters
-// - string:
-//            value returns without changes, except flag in_quotes is True.
-//            In this case value surrounds by quotes ("value").
-// - date:
-//            return value as if it was passed to xmlstring()
-// - array and fixedarray:
-//            return JSON like array representation (val1,val2,...)
-// - structure and map:
-//            return JSON like object representation {"key":val1,...}
-// - metadata objects:
-//            return string in following format:
-//            <metadata_class>: <object_representation> at <object_reference>
-//            for example:
-//            Catalogs.Users: John Smith at {4BC1AD0F-BB08-11DE-8D46-001CBF5FCF7D}
-// - references:
-//            return reference guid
+//    Возвращает:
+//      <string>
+//
+//    Описание:
+//      Данный метод работает не совсем как стандартная функция конвертации
+//      string.
+//      Правила конвертации:
+//                    null --> "null"
+//               undefined --> "undefined"
+//                 boolean --> "true" или "false"
+//                  number --> число отформатированное по правилу NZ=0;NDS=.;NGS=''
+//                             пример:
+//                             "1245123.2332"
+//                  string --> без изменений
+//                    date --> строка даты стандарта RFC 3339
+//                             пример:
+//                             "2010-04-02T10:37:10"
+//                   array --> json-like массив
+//                             пример:
+//                             "[1,2,3,4,""5"",null]"
+//                     ref --> строка UUID
+//                             пример:
+//                             "{4BC1AD0F-BB08-11DE-8D46-001CBF5FCF7D}"
+//               structure --> json-like объект
+//                     map --> json-like объект
+//                             пример:
+//                             "{""key1"":1,""key2"":""value"",...}"
+//                    type --> представление типа, пригодное для функции type()
+//                             пример:
+//                             "СatalogsRef.Users" вместо "Catalogs Ref: Users"
+//         metadata-object --> строка вида:
+//                             <metadata_class>: <object_representation> at <object_reference>
+//                             например:
+//                             "Catalogs.Users: John Smith as {4BC1AD0F-BB08-11DE-8D46-001CBF5FCF7D}"
+//                             "Enums.PhoneType: HTC"
+//            valuestorage --> base64-encoded string
+//              binarydata --> base64-encoded string
+//      Для прочих значений возвращается результат стандартной функции string
 function to_string(value,in_quotes=False) export
     tval=typeof(value);
     if value=null then
         return "null";
     elsif value=undefined then
-        return "";
+        return "undefined";
     elsif tval=type("boolean") then
-        return ?(value,"True","False");
+        return ?(value,"true","false");
     elsif tval=type("number") then
-        return strreplace(string(format(value,"NZ=0;NDS=.;NGS=")),chars.nbsp,"");
+        return strreplace(string(format(value,"NZ=0;NDS=.")),chars.nbsp,"");
     elsif tval=type("string") then
         return ?(in_quotes,""""+value+"""",value);
     elsif tval=type("date") then
@@ -204,16 +231,99 @@ function to_string(value,in_quotes=False) export
         str=strreplace(str," ","");
         str=strreplace(str,":",".");
         return str;
-    elsif check.is_object(value) then
-        //    
     elsif check.is_ref(value) then 
         return xmlstring(value);
+    elsif check.is_object(value) then
+        info=metadata.findbytype(value);
+        return info.fullname()+": "+string(value)+"";
     else
         return string(value);
     endif;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
+
+function expand_object(object,factory)
+    metainfo=metadata.findbytype(typeof(object));
+    if metainfo=undefined then
+        raise exception.TypeError("metadata object expected");
+    endif;
+    metatype=metautils.guess_type(metainfo);
+    if metatype=Constants then
+        factory.insert("value",object.get());
+    elsif metatype=Enums then
+        factory.insert("value",string(object));
+    elsif metatype=InformationRegisters or metatype=AccumulationRegisters then
+        templates=undefined;
+        factory.insert("active",object["active"]);
+        factory.insert("period",object["period"]);
+        factory.insert("recorder",object["recorder"]);
+        if metatype=AccumulationRegisters then
+            factory.insert("pointintime",
+                      new Structure("date,ref",
+                                    object["pointintime"].date,
+                                    object["pointintime"].ref)
+            );
+        endif;
+        for each attr in metainfo.attributes do
+            factory.insert(attr.name,object[attr.name]);
+        enddo;
+        for each attr in metainfo.resources do
+            factory.insert(attr.name,object[attr.name]);
+        enddo;
+        for each attr in metainfo.dimensions do
+            factory.insert(attr.name,object[attr.name]);
+        enddo;
+    else
+        templates=new Structure();
+        factory.insert("ref",object["ref"]);
+        factory.insert("deletionmark",object["deletionmark"]);
+        if metatype=Documents or metatype=Tasks then
+            factory.insert("number",object["number"]);
+            factory.insert("date",object["date"]);
+            if metatype=Documents then
+                factory.insert("posted",object["posted"]);
+            else
+                factory.insert("description",object["description"]);
+                factory.insert("executed",object["executed"]);
+            endif;
+        elsif metatype=Catalogs or metatype=ChartsOfCharacteristicTypes then
+            if object.predefined then
+                factory.insert("name",object["name"]);
+            endif;
+            factory.insert("code",object["code"]);
+            factory.insert("description",object["description"]);
+            factory.insert("predefined",object["predefined"]);
+            factory.insert("parent",object["parent"]);
+            factory.insert("isfolder",object["isfolder"]);
+            if metatype=Catalogs then
+                factory.insert("owner",object["owner"]);
+            else
+                factory.insert("valuetype",object["valuetype"]);
+            endif;
+        endif;
+        for each attr in metainfo.attributes do
+            factory.insert(attr.name,object[attr.name]);
+        enddo;
+        for each ts in metainfo.tabularsections do
+            factory.insert(ts.name,new Array());
+            sect=new Structure();
+            for each attr in ts.attributes do
+                sect.insert(attr.name,null);
+            enddo;
+            execute("
+            |for each row in object[ts.name] do
+            |    temp=new Structure();
+            |    for each item in sect do
+            |       temp.insert(item.key,item.value);
+            |    enddo;
+            |    FillPropertyValues(temp,row);
+            |    factory[ts.name].add(temp);
+            |enddo;");
+        enddo;
+    endif;
+    return factory;
+endfunction
 
 //function to_structure(object)
 //  Конвертирует объект метаданных в структуру
@@ -225,107 +335,20 @@ endfunction
 //      TypeError -- если object не объект метаданных
 //
 function to_structure(object) export
-    metainfo=metadata.findbytype(typeof(object));
-    if metainfo=undefined then
-        raise exception.TypeError("metadata object expected");
-    endif;
-    struct=new Structure();
-    if check.is_constant(object) then
-        struct.insert("value",object.get());
-        return struct;
-    elsif check.is_enum(object) then
-        struct.insert("value",string(object));
-        return struct;
-    else
-        attrs=new Array();
-        if check.is_inforegistry(object) then
-            templates=undefined;
-            attrs.add("active");
-            attrs.add("period");
-            attrs.add("recorder");
-            //
-            for each attr in metainfo.attributes do
-                attrs.add(attr.name);
-            enddo;
-            for each attr in metainfo.resources do
-                attrs.add(attr.name);
-            enddo;
-            for each attr in metainfo.dimensions do
-                attrs.add(attr.name);
-            enddo;
-        elsif check.is_accumulregistry(object) then
-            templates=undefined;
-            attrs.add("active");
-            attrs.add("period");
-            //attrs.add("pointintime");
-            struct.insert("pointintime",
-                          new Structure("date,ref",
-                                        object["pointintime"].date,
-                                        object["pointintime"].ref)
-            );
-            attrs.add("recorder");
-            //attrs.add("recordtype");
-            //
-            for each attr in metainfo.attributes do
-                attrs.add(attr.name);
-            enddo;
-            for each attr in metainfo.resources do
-                attrs.add(attr.name);
-            enddo;
-            for each attr in metainfo.dimensions do
-                attrs.add(attr.name);
-            enddo;
-        else
-            templates=new Structure();
-            attrs.add("ref");
-            attrs.add("deletionmark");
-            if check.is_document(object) then
-                attrs.add("number");
-                attrs.add("posted");
-                attrs.add("date");
-            elsif check.is_catalog(object) 
-                or check.is_charts_of_characteristic_types(object) then
-                if object.predefined then
-                    attrs.add("name");
-                endif;
-                attrs.add("code");
-                attrs.add("description");
-                attrs.add("predefined");
-                attrs.add("parent");
-                attrs.add("isfolder");
-            endif;
-            if check.is_catalog(object) then
-                attrs.add("owner");
-            endif;
-            if check.is_charts_of_characteristic_types(object) then
-                attrs.add("valuetype");
-            endif;
-            for each attr in metainfo.attributes do
-                attrs.add(attr.name);
-            enddo;
-            for each ts in metainfo.tabularsections do
-                templates.insert(ts.name,new Structure());
-                for each attr in ts.attributes do
-                    templates[ts.name].insert(attr.name,null);
-                enddo;
-            enddo;
-        endif;
-    endif;
-    for each attr in attrs do
-        struct.insert(attr,null);
-    enddo;
-    FillPropertyValues(struct,object);
-    if templates<>undefined then
-        for each ts in templates do
-            struct.insert(ts.key,new Array);
-            for each row in object[ts.key] do
-                temp=ts.value;
-                FillPropertyValues(temp,row);
-                struct[ts.key].add(temp);
-            enddo;
-        enddo;
-    endif;
-    return struct;
+    return expand_object(object,new structure);
+endfunction
+
+//function to_structure(object)
+//  Конвертирует объект метаданных в соответствие
+//
+//  Параметры:
+//      object -- объект метаданных
+//
+//    Исключения:
+//      TypeError -- если object не объект метаданных
+//
+function to_map(object) export
+    return expand_object(object,new map);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -396,7 +419,7 @@ endfunction
 //      в двоичной системе в прямом коде, где True обозначает 1 и False - 0.
 //      Следует помнить, что представление одного и того же числа 
 //      с разным знаком различно:
-//      -10=math.abs(-10)-1=9=01001=10110=>array(True,False,True,True,False)
+//      -10=abs(-10)-1=9=01001=10110=>array(True,False,True,True,False)
 //      10=01010=>array(False,True,False,True,False)
 //      Дробные числа пока не поддерживаются.
 //
@@ -517,35 +540,33 @@ endfunction
 // Вспомогательные методы
 /////////////////////////////////////////////////////////////////////////////
 
-function _binarr2bin(val value)
-    res="";
-    sign=?(value[0],"-","");
-    if value[0] then
-        l=value.ubound();
+function _binarr2bin(binarr)
+    res=?(binarr[0],"-","")+"0b";
+    l=binarr.ubound();
+    if l=0 then
+        return "0b0";
+    endif;
+    if binarr[0] then
         for i=0 to l do
-            value.set(i,not value[i]); // why set?
+            binarr[i]=not binarr[i];
         enddo;
-        if l=0 then
-            return re;
-        endif;
-        while True do
-            res[l]=not res[l];
-            if res[l] then
-                break;
-            endif;
+        binarr[l]=not binarr[l];
+        while not binarr[l] do
             l=l-1;
+            binarr[l]=not binarr[l];
         enddo;
     endif;
-    l=value.ubound();
-    for i=value.find(not value[0]) to l do
-        res=res+string(int(value[i]));
-    enddo;
-    return sign+"0b"+res;
+    start=binarr.find(not binarr[0]);
+    if start<>undefined then
+        for i=start to l do
+            res=res+string(int(binarr[i]));
+        enddo;
+    endif;
+    return res;
 endfunction
 
 function _oct2bin(value)
     res="";
-    //16001
     is_neg=mid(value,1,1)="-";
     sign=?(is_neg,"-","");
     octstr="01234567";
@@ -558,8 +579,7 @@ function _oct2bin(value)
 endfunction
 
 function _dec2bin(value)
-    res=0;
-    base=0;
+    res=0;base=0;
     sign=?(value<0,"-","");
     value=?(value>0,value,value*-1);
     while value>0 do
@@ -593,10 +613,10 @@ function _bin2binarr(value)
     is_neg=mid(value,1,1)="-";
     res.add(is_neg);
     start=find(value,"1");
-    for i=?(start=0,l+1,start) to l do
-        v=boolean(int(mid(value,i,1)));
-        res.add(?(is_neg,not v,v));
-    enddo;
+    execute("
+    |for i=?(start=0,l+1,start) to l do
+    |    res.add(?(is_neg,not boolean(int(mid(value,i,1))),boolean(int(mid(value,i,1)))));
+    |enddo;");
     if is_neg then
         l=res.ubound();
         if l=0 then
@@ -632,8 +652,7 @@ function _bin2dec(value)
     sign=?(mid(value,1,1)="-",-1,1);
     l=strlen(value);
     for i=?(sign=-1,4,3) to l do
-        v=mid(value,i,1);
-        if v<>"0" then
+        if mid(value,i,1)<>"0" then
             res=res+pow(2,l-i);
         endif;
     enddo;
@@ -641,17 +660,13 @@ function _bin2dec(value)
 endfunction
 
 function _binarr2dec(val value)
-    res=0;
-    l=value.ubound();
-    sign=?(value[0],-1,1);
-    i=l;
-    while i<>0 do
+    res=0;l=value.ubound();
+    for i=1 to l do
         if value[0]<>value[i] then
             res=res+pow(2,l-i);
         endif;
-        i=i-1;
     enddo;
-    return sign*res-?(value[0],1,0);
+    return ?(value[0],-1*res-1,res);
 endfunction
 
 function _hex2dec(val value,prefix="0x")
@@ -659,11 +674,8 @@ function _hex2dec(val value,prefix="0x")
     value=upper(value);
     hexstr="0123456789ABCDEF";
     l=strlen(value);
-    s=strlen(prefix)+1;
-    for i=s to l do
-        if mid(value,i,1)="0" then
-            s=s+1;
-        else
+    for s=strlen(prefix)+1 to l do
+        if mid(value,s,1)<>"0" then
             break;
         endif;
     enddo;
@@ -674,12 +686,10 @@ function _hex2dec(val value,prefix="0x")
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
-// TODO
 
 function _bin2hex(val value,prefix="0x")
     res="";
     is_neg=mid(value,1,1)="-";
-    sign=?(is_neg,"-","");
     hexstr="0123456789ABCDEF";
     binstr="|0000|0001|0010|0011|0100|0101|0110|0111|1000|1001|1010|1011|1100|1101|1110|1111";
     value=mid(value,?(is_neg,4,3));
@@ -697,7 +707,7 @@ function _bin2hex(val value,prefix="0x")
         p=p-p/5;
         res=res+mid(hexstr,(p/4)+1,1);
     enddo;
-    return sign+prefix+res;
+    return ?(is_neg,"-","")+prefix+res;
 endfunction
 
 function _binarr2hex(val value,prefix="0x")

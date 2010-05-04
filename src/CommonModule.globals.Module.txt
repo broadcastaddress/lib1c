@@ -1,62 +1,49 @@
 ﻿function assert(expr,msg="",env=undefined) export
-    if not expr then
-        raise exception.AssertionError(msg,env);
-    endif;
-    return True;
+    if expr then return True; endif;
+    raise exception.AssertionError(msg,env);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function cmp(a,b,deep=False)
+//function cmp(a,b)
 //    Сравнивает два значения и возвращает коэфициент их разности
 //
 //    Параметры:
 //         a     <any> -- любое значение
 //         b     <any> -- любое значение
-//      deep <boolean> -- правила сравнения
-//
-//    Возвращает:
-//        0 если a = b
-//        1 если a > b
-//       -1 если a < b
-//
-//    Описание:
-//      По умолчанию, в режиме strict=False, производится сравнение
-//      стандартным алгоритмом 1С, для которого разные объекты,
-//      содержащие одинаковые данные не могут быть равны - это
-//      не совсем удобно для сравнения массивов.
-//      В режиме deep=True сравниваются не сами значения, а их сериализация
-//      с помощью xmlstring метода. Однако, приоритет отдается тому, у кого
-//      строка больше.
-function cmp(a,b,deep=False) export
-    if not deep then
-        return ?(a=b,0,?(a>b,1,-1));
-    else
-        tval=typeof(a);
-        if tval=typeof(b) then
-            if tval=type("string") or tval=type("number") or tval=type("date")
-                or tval=type("boolean") or a=undefined or a=null then
-                    return ?(a=b,0,?(a>b,1,-1));
-            endif;
-        endif;
-        // a little hack for other types.
-        x=xmlstring(new valuestorage(a));
-        y=xmlstring(new valuestorage(b));
-        // By theory, there is some chance to get invalid result
-        // but it's too small and had been never seen before
-        return ?(x=y,0,?(x>y,1,-1));
-    endif;
+function cmp(a,b) export
+    c=new CompareValues;
+    return c.compare(a,b);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function getattr(expr,attr,default=undefined) export
+    try
+        value=expr[attr];
+        metainfo=metadata.findbytype(typeof(value));
+        if metainfo<>undefined then
+            metatype=metautils.guess_type(metainfo);
+            if metatype=Constants then
+                return value.get();
+            endif;
+        endif;
+        return value;
+    except
+        return default;
+    endtry;
 endfunction
 
 function setattr(expr,attr,value) export
+    expr[attr]=value;
 endfunction
 
 function delattr(expr,attr) export
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function noop() export
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -127,3 +114,6 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+function swap(a,b) export
+    t=a;a=b;b=t;
+endfunction

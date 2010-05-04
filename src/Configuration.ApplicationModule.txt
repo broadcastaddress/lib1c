@@ -1,6 +1,6 @@
 ﻿var cache_storage export;
 
 Procedure OnStart()
-    
+    reports.unittest.create().GetForm().Open();
 EndProcedure
 

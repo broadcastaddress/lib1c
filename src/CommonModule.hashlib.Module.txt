@@ -136,5 +136,5 @@ function crc64(s) export
         crch=bitwise.xor(temp1h,crctableh[tableindex]);
         crcl=bitwise.xor(temp1l,crctablel[tableindex]);
     enddo;
-    return convert.to_hex(crch,"")+convert.to_hex(crcl,"");
+    return string.ljust(convert.to_hex(crch,""),8,"0")+string.ljust(convert.to_hex(crcl,""),8,"0");
 endfunction

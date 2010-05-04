@@ -157,54 +157,35 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function is_constant(expr) export
-    try
-        return metadata.constants.contains(expr.CreateValueManager().metadata());
-    except
-        try
-            return metadata.constants.contains(expr.metadata());
-        except
-            return false;
-        endtry;
-    endtry;
-endfunction
-
-function is_document(expr) export
-    return documents.allRefsType().containsType(typeof(expr.ref));
-endfunction
-
-function is_catalog(expr) export
-    return catalogs.AllRefsType().containsType(typeof(expr.ref));
-endfunction
-
-function is_charts_of_characteristic_types(expr) export
-    return chartsOfCharacteristicTypes.allRefsType().containsType(typeof(expr.ref));
-endfunction
-
-function is_inforegistry(expr) export
-    try
-        x=metadata.findbytype(typeof(expr)).InformationRegisterPeriodicity;
-        return True;
-    except
-        return False;
-    endtry;
-endfunction
-
-function is_accumulregistry(expr) export
-    try
-        x=metadata.findbytype(typeof(expr)).enableTotalsSplitting;
-        return True;
-    except
-        return False;
-    endtry;
+    return metautils.guess_type(expr)=Constants;
 endfunction
 
 function is_enum(expr) export
-    try
-        x=metadata.findbytype(typeof(expr)).EnumValues;
-        return True;
-    except
-        return False;
-    endtry;
+    return metautils.guess_type(expr)=Enums;
+endfunction
+
+function is_catalog(expr) export
+    return metautils.guess_type(expr)=Catalogs;
+endfunction
+
+function is_document(expr) export
+    return metautils.guess_type(expr)=Documents;
+endfunction
+
+function is_charts_of_characteristic_types(expr) export
+    return metautils.guess_type(expr)=ChartsOfCharacteristicTypes;
+endfunction
+
+function is_tasks(expr) export
+    return metautils.guess_type(expr)=Tasks;
+endfunction
+
+function is_inforegistry(expr) export
+    return metautils.guess_type(expr)=InformationRegisters;
+endfunction
+
+function is_accumulregistry(expr) export
+    return metautils.guess_type(expr)=AccumulationRegisters;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -273,7 +254,7 @@ function is_bin(v) export
 endfunction
 
 function is_binarr(v) export
-    if not is_array(v) or is_false(v) then return false; endif;
+    if not is_array(v) or v.count()=0 then return false; endif;
     try
         // можно долго смеяться и материться, но так
         // в ДВА РАЗА быстрее, чем без execute.
@@ -304,7 +285,7 @@ endfunction
 
 function is_hex(v) export
     try
-        return re.test(v,"^(?:-?0x|\x|\u)[0-9a-fA-F]+$");
+        return re.test(v,"^(?:-?0x|\\x|\\u)[0-9a-fA-F]+$");
     except
         return false;
     endtry;

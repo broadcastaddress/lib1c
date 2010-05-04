@@ -1,4 +1,4 @@
-﻿function Exception(type,msg,env)
+﻿function Exception(val type,val msg,env)
     if not check.is_string(type) then
         raise exception.TypeError("argument 1 (type) must be string",
                                   new Structure("type,msg,env",type,msg,env));
@@ -139,59 +139,87 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function buildmsg(err)
-    if metadata.CommonModules.find("environ")=undefined then
-        // common way
-        cache.set("exception.last",err);
-        msg=err.type+": "+chars.cr+err.msg;
+    attrs=new Structure("date,errtype",currentdate(),err.type);
+    environ.put("/exceptions/exception",err,attrs);
+    root="/exceptions/exception[last()]";
+    environ.put(root+"/message",err.msg);
+    environ.put(root+"/environ",err.env);
+    //
+    msg = chars.cr + "Exceptions traceback (most recent goes last):"
+           + chars.cr;
+    for each errinfo in environ.get("/exceptions/exception",5) do
+        msg=msg+"    "
+               +errinfo.type+" in "+errinfo.src+"@"+errinfo.line+chars.cr;
+        msg=msg+"        Reason: "+errinfo.msg+chars.cr;
+    enddo;
+    msg=msg+chars.cr+err.type+": "+err.msg;
+    env="";
+    if ValueIsFilled(err.env) then
         msg=msg+chars.cr+chars.cr+"Enviroment:"+chars.cr;
         for each item in err.env do
-            msg=msg+item.key
-                   +" <"+convert.to_string(typeof(item.value))+"> = "
-                   +item.value+chars.cr;
-        enddo;
-    else
-        // advanced way
-        msg = chars.cr + "Exceptions traceback (most recent goes last):"
-               + chars.cr;
-        for each errinfo in environ.get("/exceptions/exception") do
-            msg=msg+"    "+errinfo.type+" at "+errinfo.src
-                   +" line ("+errinfo.line+")"+chars.cr;
-        enddo;
-        msg=msg+chars.cr+err.type+": "+chars.cr+err.msg;
-        msg=msg+chars.cr+chars.cr+"Enviroment:"+chars.cr;
-        for each item in err.env do
-            msg=msg+item.key
+            env=env+item.key
                    +" <"+convert.to_string(typeof(item.value))+"> = "
                    +convert.to_string(item.value)+chars.cr;
         enddo;
-        //
-        attrs=new Structure("date,errtype",currentdate(),err.type);
-        environ.put("/exceptions/exception",err,attrs);
-        root="/exceptions/exception[last()]";
-        environ.put(root+"/message",err.msg);
-        environ.put(root+"/environ",err.env);
-        environ.set("/exceptions/message",msg)
+        msg=msg+env;
     endif;
+    environ.set("/exceptions/message",msg);
+    logging.error("exception."+err.type,msg);
     return msg;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+function clear() export
+    // remove all exceptions but not first and last
+    environ.del("/exceptions/exception");
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function last() export
+    return environ.get("/exceptions/exception[last()]")[0];
+endfunction
+
+function throw() export
+    err=last();
+    msg = chars.cr + "Exceptions traceback (most recent goes last):"
+           + chars.cr;
+    for each errinfo in environ.get("/exceptions/exception",5) do
+        msg=msg+"    "
+               +errinfo.type+" in "+errinfo.src+"@"+errinfo.line+chars.cr;
+        msg=msg+"        Reason: "+errinfo.msg+chars.cr;
+    enddo;
+    msg=msg+chars.cr+err.type+": "+err.msg;
+    env="";
+    if ValueIsFilled(err.env) then
+        msg=msg+chars.cr+chars.cr+"Enviroment:"+chars.cr;
+        for each item in err.env do
+            env=env+item.key
+                   +" <"+convert.to_string(typeof(item.value))+"> = "
+                   +convert.to_string(item.value)+chars.cr;
+        enddo;
+        msg=msg+env;
+    endif;
+    return msg
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
 function catch(errinfo) export
-    if metadata.CommonModules.find("environ")<>undefined then
-        if environ.has("/exceptions/message") 
-            and environ.get("/exceptions/message")[0]=errinfo.description then
-            err=environ.get("/exceptions/exception[last()]")[0];
-            err.src=errinfo.moduleName;
-            err.line=errinfo.lineNumber;
-            environ.set("/exceptions/exception[last()]",err);
-            return err;
-        else
-            err=Exception("UnhandledException",errinfo.description,undefined);
-            err.src=errinfo.moduleName;
-            err.line=errinfo.lineNumber;
-            return err;
-        endif;
+    if environ.has("/exceptions/message") 
+        and environ.get("/exceptions/message")[0]=errinfo.description then
+        err=environ.get("/exceptions/exception[last()]")[0];
+        err.src=errinfo.moduleName;
+        err.line=errinfo.lineNumber;
+        environ.set("/exceptions/exception[last()]",err);
+        return err;
+    else
+        err=Exception("RunTimeError",errinfo.description,undefined);
+        err.src=errinfo.moduleName;
+        err.line=errinfo.lineNumber;
+        buildmsg(err);
+        return err;
     endif;
     return undefined;
 endfunction

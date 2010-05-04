@@ -1,25 +1,33 @@
 ﻿//function and_(val a,val b)
-//    Реализует операцию побитового И для значений a и b.
+//  Реализует операцию побитового И для значений `a` и `b`.
 //
-//    Параметры:
-//        a,b -- число, представленное в десятичной системе как <number>,
-//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
-//                или же бинарный массив как <array>,<fixedarray>
+//  Параметры:
+//      a,b <number>,<string>,<array>
 //
-//    Возвращает:
-//        <binaryArray>
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию побитового И для значений `a` и `b`, которые
+//      могут быть представленны в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function and_(val a,val b) export
     a=convert.to_binarray(a);
     b=convert.to_binarray(b);
     res=new Array();
     i=a.ubound();
     j=b.ubound();
-    while i>0 or j>0 do
-        an=?(i<1,a[0],a[i]);
-        bn=?(j<1,b[0],b[j]);
-        res.insert(0,an and bn);
-        i=i-1;j=j-1;
-    enddo;
+    execute("
+    |while i>0 or j>0 do
+    |    an=?(i<1,a[0],a[i]);
+    |    bn=?(j<1,b[0],b[j]);
+    |    res.insert(0,an and bn);
+    |    i=i-1;j=j-1;
+    |enddo;");
     res.insert(0,a[0] and b[0]);
     return res;
 endfunction
@@ -27,27 +35,35 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function or_(val a,val b)
-//    Реализует операцию побитового ИЛИ для значений a и b.
+//  Реализует операцию побитового ИЛИ для значений `a` и `b`.
 //
-//    Параметры:
-//        a,b -- число, представленное в десятичной системе как <number>,
-//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
-//                или же бинарный массив как <array>,<fixedarray>
+//  Параметры:
+//      a,b <number>,<string>,<array>
 //
-//    Возвращает:
-//        <binaryArray>
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию побитового ИЛИ для значений `a` и `b`, которые
+//      могут быть представленны в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function or_(val a,val b) export
     a=convert.to_binarray(a);
     b=convert.to_binarray(b);
     res=new Array();
     i=a.ubound();
     j=b.ubound();
-    while i>0 or j>0 do
-        an=?(i<1,a[0],a[i]);
-        bn=?(j<1,b[0],b[j]);
-        res.insert(0,an or bn);
-        i=i-1;j=j-1;
-    enddo;
+    execute("
+    |while i>0 or j>0 do
+    |    an=?(i<1,a[0],a[i]);
+    |    bn=?(j<1,b[0],b[j]);
+    |    res.insert(0,an or bn);
+    |    i=i-1;j=j-1;
+    |enddo;");
     res.insert(0,a[0] or b[0]);
     return res;
 endfunction
@@ -55,53 +71,93 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function xor(val a,val b)
-//    Реализует побитовую операцию исключающего ИЛИ для значений a и b.
+//  Реализует операцию побитового исключающего ИЛИ для значений `a` и `b`.
 //
-//    Параметры:
-//        a,b -- число, представленное в десятичной системе как <number>,
-//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
-//                или же бинарный массив как <array>,<fixedarray>
+//  Параметры:
+//      a,b <number>,<string>,<array>
 //
-//    Возвращает:
-//        <binaryArray>
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию побитового исключающего ИЛИ для значений `a` и `b`,
+//      которые могут быть представленны в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function xor(val a,val b) export
     a=convert.to_binarray(a);
     b=convert.to_binarray(b);
     res=new Array();
     i=a.ubound();
     j=b.ubound();
-    while i>0 or j>0 do
-        an=?(i<1,a[0],a[i]);
-        bn=?(j<1,b[0],b[j]);
-        res.insert(0,an<>bn);
-        i=i-1;j=j-1;
-    enddo;
-    res.insert(0,a[0]<>b[0]);
+    execute("
+    |while i>0 or j>0 do
+    |    an=?(i<1,a[0],a[i]);
+    |    bn=?(j<1,b[0],b[j]);
+    |    res.insert(0,an <> bn);
+    |    i=i-1;j=j-1;
+    |enddo;");
+    res.insert(0,a[0] <> b[0]);
     return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 //function not_(value)
-//    Реализует операцию побитового НЕ для значения value
+//  Реализует операцию побитового НЕ для переданного значения.
 //
-//    Параметры:
-//        value -- число, представленное в десятичной системе как <number>,
-//                в 2-ичной, 8-ричной или 16-ричной системах как <string>
-//                или же бинарный массив как <array>,<fixedarray>
+//  Параметры:
+//      value <number>,<string>,<array>
 //
-//    Возвращает:
-//        <binaryArray>
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию побитового НЕ для значения `value`,
+//      которое может быть представленно в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function not_(value) export
-    return inv(value);
+    res=convert.to_binarray(value);
+    if res=value then
+        res=array.copy(value);
+    endif;
+    l=res.ubound();
+    for i=0 to l do
+        res[i]=not res[i];
+    enddo;
+    return res;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+//function lshift(value,shift)
+//  Реализует операцию логического сдвига влево.
+//
+//  Параметры:
+//      value <number>,<string>,<array>
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию логического сдвига влево для значений `value`,
+//      которое может быть представленно в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function lshift(value,shift) export
     res=convert.to_binarray(value);
     if res=value then
-        res=_copy(value);
+        res=array.copy(value);
     endif;
     for i=1 to shift do
         res.add(res[0]);
@@ -111,34 +167,34 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
+//function rshift(value,shift)
+//  Реализует операцию логического сдвига вправо.
+//
+//  Параметры:
+//      value <number>,<string>,<array>
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Реализует операцию логического сдвига вправо для значений `value`,
+//      которое может быть представленно в десятичной системе как <number>,
+//      в 2-ичной, 8-ричной или 16-ричной системах как <string>
+//      или же бинарный массив <array>.
+//
+//      Результатом работы функции является бинарный массив.
+//
 function rshift(value,shift) export
     res=convert.to_binarray(value);
     if res=value then
-        res=_copy(value);
+        res=array.copy(value);
     endif;
-    l=res.count()-shift;
+    i=res.count();
+    l=i-?(shift>0,shift,0);
     l=?(l<1,1,l);
-    while res.count()<>l do
+    while i<>l do
         res.delete(res.ubound());
+        i=i-1;
     enddo;
     return res;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function inv(value) export
-    res=convert.to_binarray(value);
-    if res=value then
-        res=_copy(value);
-    endif;
-    l=res.ubound();
-    for i=0 to l do
-        res.set(i,not res[i]); // why set?
-    enddo;
-    return res;
-endfunction
-
-function _copy(arr)
-    res=new valuestorage(arr);
-    return res.get();
 endfunction

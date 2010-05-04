@@ -1,16 +1,17 @@
 ﻿//function create(*args)
-//    Создает массив с указанными элементами
+//  Создает массив с указанными элементами
 //
-//    Параметры:
-//        *args -- элементы массива, до 26 аргументов, не <null> типа
+//  Параметры:
+//      *args -- элементы массива, до 26 аргументов, не <null> типа
 //
-//    Возвращает:
-//        <array>
+//  Возвращает:
+//      <array>
 //
-//    Описание:
-//    Имитирует конструктор массива, создающий массив с элементами,
-//    переданными в качестве аргументов. Пропущенные или элементы,
-//    равные null не включаются в массив.
+//  Описание:
+//      Имитирует конструктор массива, создающий массив с элементами,
+//      переданными в качестве аргументов. Пропущенные или элементы,
+//      равные null не включаются в массив.
+//
 function create(a=null,b=null,c=null,d=null,e=null,f=null,g=null,
                 h=null,i=null,j=null,k=null,l=null,m=null,n=null,
                 o=null,p=null,q=null,r=null,s=null,t=null,u=null,
@@ -33,14 +34,14 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function count(arr,value)
-//    Возвращает количество элементов value в массиве arr
+//  Возвращает количество элементов value в массиве arr
 //
-//    Параметры:
-//          arr -- <array>,<fixedarray>
-//        value -- <any>
+//  Параметры:
+//      arr <array>,<fixedarray>
+//      value <any>
 //
-//    Возвращает:
-//        <number>
+//  Возвращает:
+//      <number>
 //
 function count(arr,value) export
     if not check.is_array_or_fixedarray(arr) then
@@ -59,74 +60,42 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function copy(arr)
-//    Возвращает копию массива arr
+//  Возвращает копию массива arr
 //
-//    Параметры:
-//        arr -- <array>,<fixedarray>
+//  Параметры:
+//      arr <array>,<fixedarray>
 //
-//    Возвращает:
-//        <array>,<fixedarray>
+//  Возвращает:
+//      <array>,<fixedarray>
+//
 function copy(arr) export
     if not check.is_array_or_fixedarray(arr) then
         raise exception.TypeError("argument 1 must be array or fixedarray",
                                   new Structure("arr",arr));
     endif;
     res=new Array();
-    for each item in arr do
-        res.add(item);
-    enddo;
+    execute("
+    |for each item in arr do
+    |    res.add(item);
+    |enddo;");
     return ?(check.is_array(res),res,array.freeze(res));
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function diff(arr1,arr2)
-//    Возвращает массив различий между массивами arr1 и arr2
-//
-//    Параметры:
-//        arr1 -- <array>,<fixedarray>
-//        arr2 -- <array>,<fixedarray>
-//
-//    Возвращает:
-//        <array>
-//
-function diff(arr1,arr2) export
-    if not check.is_array_or_fixedarray(arr1) then
-        raise exception.TypeError("argument 1 must be array or fixedarray",
-                                  new Structure("arr1,arr2",arr1,arr2));
-    endif;
-    if not check.is_array_or_fixedarray(arr2) then
-        raise exception.TypeError("argument 2 must be array or fixedarray",
-                                  new Structure("arr1,arr2",arr1,arr2));
-    endif;
-    res=new Array();
-    l=min(arr1.ubound(),arr2.ubound());
-    s=max(arr1.ubound(),arr2.ubound())-l;
-    for i=0 to l do
-        if cmp(arr1[i],arr2[i])<>0 then
-            res.add(i);
-        endif;
-    enddo;
-    for i=l to s do
-        res.add(i);
-    enddo;
-    return res;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
 //function freeze(arr)
-//    "Замораживает" массив, создавая из него FixedArray
+//  "Замораживает" массив, создавая из него FixedArray
 //
-//    Параметры:
-//        arr -- <array>,<fixedarray>
+//  Параметры:
+//      arr <array>,<fixedarray>
 //
-//    Возвращает:
-//        <fixedarray>
+//  Возвращает:
+//      <fixedarray>
 //
-//    Описание:
+//  Описание:
 //      Враппер над конструктором FixedArray. Ничего не делает, если передать
 //      arr как <fixedarray>.
+//
 function freeze(arr) export
     if check.is_fixedarray(arr) then
         return arr;
@@ -141,14 +110,13 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function frozenset(arr)
-//    Создает неизменяемый массив на основе массива <arr>
-//    без повторяющихся элементов
+//  Создает неизменяемый массив без повторяющихся элементов
 //
-//    Параметры:
-//        arr -- <array>,<fixedarray>
+//  Параметры:
+//      arr <array>,<fixedarray>
 //
-//    Возвращает:
-//        <fixedarray>
+//  Возвращает:
+//      <fixedarray>
 //
 function frozenset(arr) export
     if not check.is_array_or_fixedarray(arr) then
@@ -167,16 +135,17 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function len(arr)
-//    Возвращает количество элементов массива arr
+//  Возвращает количество элементов массива arr
 //
-//    Параметры:
-//        arr -- <array>,<fixedarray>
+//  Параметры:
+//      arr <array>,<fixedarray>
 //
-//    Возвращает:
-//        <number>
+//  Возвращает:
+//      <number>
 //
-//    Описание:
-//    Аналог arr.count()
+//  Описание:
+//      Аналог arr.count()
+//
 function len(arr) export
     if not check.is_array_or_fixedarray(arr) then
         raise exception.TypeError("argument 1 must be array or fixedarray",
@@ -188,16 +157,16 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function merge(arr1,arr2)
-//    Создает новый массив из элементов двух массивов
+//  Создает новый массив из элементов двух массивов
 //
-//    Параметры:
-//        arr1 -- массив приемник <array>,<fixedarray>
-//        arr -- <array>,<fixedarray>
+//  Параметры:
+//      arr1 <array>,<fixedarray>
+//      arr2 <array>,<fixedarray>
 //
-//    Возвращает:
-//        <array>
+//  Возвращает:
+//      <array>
 //
-function merge(val arr1,arr2) export
+function merge(arr1,arr2) export
     if check.is_fixedarray(arr1) then
         arr1=array.update(new Array(),arr1);
     endif;
@@ -209,32 +178,82 @@ function merge(val arr1,arr2) export
         raise exception.TypeError("argument 2 must be array or fixedarray",
                                   new Structure("arr1,arr2",arr1,arr2));
     endif;
-    for each item in arr2 do
-        arr1.add(item);
+    res=new Array();
+    for each item in arr1 do
+        res.add(item);
     enddo;
-    return arr1;
+    for each item in arr2 do
+        res.add(item);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function min_n_max(arr)
+//  Возвращает максимальный и минимальный элементы массива
+//
+//  Параметры:
+//      arr <array>,<fixedarray>
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Функция является доработаным вариантом идей отсюда:
+//      http://habrahabr.ru/blogs/development/92303
+//
+function min_n_max(arr) export
+    l=arr.ubound();
+    i=0;min=0;max=0;
+    if l=-1 then
+        return pair(undefined,undefined);
+    elsif l=0 then
+        return pair(arr[min],arr[max]);
+    else
+        while i<l do
+            if arr[i]<arr[i+1] then
+                if arr[i]<arr[min]   then min=i; endif;
+                if arr[i+1]>arr[max] then max=i+1; endif;
+            else
+                if arr[i+1]<arr[min] then min=i+1; endif;
+                if arr[i]>arr[max]   then max=i; endif;
+            endif;
+            i=i+2;
+        enddo;
+        if i=l then
+            if arr[i]<arr[min] then min=i; endif;
+            if arr[i]>arr[max] then max=i; endif;
+        endif;
+        return pair(arr[min],arr[max]);
+    endif;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 //function pop(arr,start=undefined,end=undefined)
-//    Удаляет и возвращает удаленный элемент/набор элементов из массива
+//  Удаляет и возвращает удаленный элемент/набор элементов из массива
 //
-//    Параметры:
-//          arr -- <array>,<fixedarray>
-//        start -- <undefined>,<number>
-//          end -- <undefined>,<number>,<null>
+//  Параметры:
+//        arr <array>,<fixedarray>
+//      start <undefined>,<number>
+//        end <undefined>,<number>,<null>
 //
-//    Возвращает:
-//        <variant>,<array>
+//  Возвращает:
+//      <any>,<array>
 //
-//    Описание:
+//  Описание:
 //      С указанным аргументом start, вырезает элементы с этой позиции.
 //      С указанным аргументом end, вырезает элементы по эту позицию.
 //      start и end могут быть отрицательными для поиска c конца.
+//
 //      Для указания диапозона до конца end должен быть установлен в null.
 //      По умолчанию, когда start и end undefined, вырезает последний элемент.
-function pop(arr,start=undefined,end=undefined) export
+//
+//      Если результатом выборки является один элемент, то он же и возвращается,
+//      иначе возвращается массив вырезанных элементов.
+//
+function pop(arr,val start=undefined,val end=undefined) export
     if not check.is_array(arr) then
         msg="argument 1 must be array";
         raise exception.TypeError(msg,
@@ -264,7 +283,7 @@ function pop(arr,start=undefined,end=undefined) export
     if end=undefined then
         if start>arr.ubound() then
             raise exception.IndexError(
-                    undefined,
+                    "Index `start` is out of range",
                     new Structure("arr,start,end,ubound",
                                    arr,start,end,arr.ubound())
             );
@@ -287,8 +306,7 @@ function pop(arr,start=undefined,end=undefined) export
         endif;
         res.add(arr[i]);
         arr.delete(i);
-        i=i-1;
-        j=j+1;
+        i=i-1;j=j+1;
     enddo;
     return ?(res.count()=1,res[0],res);
 endfunction
@@ -296,22 +314,23 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function reverse(arr)
-//    Переставляет элементы массива в обратном порядке
+//  Переставляет элементы массива в обратном порядке
 //
-//    Параметры:
-//        arr -- <array>
+//  Параметры:
+//      arr <array>
 //
-//    Возвращает:
-//        arr
+//  Возвращает:
+//      arr
 //
 function reverse(arr) export
     if not check.is_array(arr) then
         raise exception.TypeError("argument 1 must be array",
                                   new Structure("arr",arr));
     endif;
-    len=arr.ubound()-1;
-    for i=0 to len do
-        arr.insert(i,array.pop(arr));
+    len=arr.ubound();
+    j=int(len/2);
+    for i=0 to j do
+        swap(arr[i],arr[len-i]);
     enddo;
     return arr;
 endfunction
@@ -319,23 +338,28 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 //function slice(arr,start=0,end=undefined)
-//    Возвращает произвольный набор элементов из массива
+//  Возвращает произвольный набор элементов из массива
 //
-//    Параметры:
-//          arr -- <array>,<fixedarray>
-//        start -- <undefined>,<number>
-//          end -- <undefined>,<number>,<null>
+//  Параметры:
+//        arr <array>,<fixedarray>
+//      start <undefined>,<number>
+//        end <undefined>,<number>,<null>
 //
-//    Возвращает:
-//        <fixedarray>
+//  Возвращает:
+//      <any>,<array>
 //
-//    Описание:
+//  Описание:
 //      С указанным аргументом start, выбирает элементы с этой позиции.
 //      С указанным аргументом end, выбирает элементы по эту позицию.
 //      start и end могут быть отрицательными для поиска c конца.
+//
 //      Для указания диапозона до конца end должен быть установлен в null.
 //      По умолчанию, когда start=0 и end=undefined, возвращает первый элемент.
-function slice(arr,start=0,end=undefined) export
+//
+//      Если результатом выборки является один элемент, то он же и возвращается,
+//      иначе возвращается массив вырезанных элементов.
+//
+function slice(arr,val start=0,val end=undefined) export
     if not check.is_array_or_fixedarray(arr) then
         msg="argument 1 must be array or fixedarray";
         raise exception.TypeError(msg,
@@ -361,7 +385,7 @@ function slice(arr,start=0,end=undefined) export
     if end=undefined then
         if start>arr.ubound() then
             raise exception.IndexError(
-                    undefined,
+                    "Index `start` is out of range",
                     new Structure("arr,start,end,ubound",
                                    arr,start,end,arr.ubound())
             );
@@ -375,72 +399,59 @@ function slice(arr,start=0,end=undefined) export
         end=end-start;
     endif;
     res=new Array();
-    for i=start to end do
-        if i>arr.ubound() or i>end then
-            break;
-        endif;
+    i=start;
+    while i<=arr.ubound() or i<=end do
         res.add(arr[i]);
     enddo;
-    return res;
+    return ?(res.count()=1,res[0],res);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-//function sort(arr,order_asc=True)
-//    Сортирует переданный массив по возрастанию алгоритмом quicksort
+//function sort(arr)
+//  Сортирует переданный массив по возрастанию алгоритмом quicksort
 //
-//    Параметры:
-//              arr -- <array>
-//        order_asc -- <boolean> флаг направления сортировки,
-//                               True=по возрастанию
-//    Возвращает:
-//        arr
+//  Параметры:
+//      arr <array>
 //
-//    Описание:
-//      Сортирует переданный массив алгоритмом quicksort
-function sort(arr,order_asc=True) export
-    if not check.is_array(arr) then
-        raise exception.TypeError("argument 1 must be array",
-                                  new Structure("arr,order_asc",arr,order_asc));
+//  Возвращает:
+//      arr
+//
+function sort(arr,left=undefined,right=undefined) export
+    if left=undefined then left=0; endif;
+    if right=undefined then right=arr.ubound(); endif;
+    if right>left then
+        pivot_index=partition(arr,left,right);
+        sort(arr,left,pivot_index-1);
+        sort(arr,pivot_index+1,right);
     endif;
-    bound=arr.ubound();
-    if bound<1 then
-        return arr;
-    else
-        pivot=arr[0];
-        before_pivot=new array();
-        after_pivot=new array();
-        for i=1 to bound do
-            item=arr[i];
-            preq=(order_asc and cmp(item,pivot)<=0)
-                or (not order_asc and cmp(item,pivot)>0);
-            if preq then
-                before_pivot.add(item);
-            else
-                after_pivot.add(item);
-            endif;
-        enddo;
-    endif;
-    arr.clear();
-    array.update(arr,sort(before_pivot,order_asc));
-    arr.add(pivot);
-    return array.update(arr,sort(after_pivot,order_asc));
+endfunction
+
+function partition(a,p,r)
+    x=a[r];
+    j=p-1;
+    for i=p to r-1 do
+        if x>a[i] then
+            j=j+1;
+            swap(a[i],a[j]);
+        endif;
+    enddo;
+    a[r]=a[j+1];
+    a[j+1]=x;
+    return j+1;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 //function update(arr1,arr2)
-//    Добавляет элементы массива arr2 в массив arr1
+//  Добавляет элементы массива arr2 в массив arr1
 //
-//    Параметры:
-//        arr1 -- <array> массив приемник
-//        arr2 -- <array>,<fixedarray> массив источник
+//  Параметры:
+//      arr1 <array>
+//      arr2 <array>,<fixedarray>
 //
-//    Возвращает:
-//        arr1
-//
-//    Описание:
-//      Добавляет элементы массива arr2 в массив arr1.
+//  Возвращает:
+//      arr1
 //
 function update(arr1,arr2) export
     if not check.is_array(arr1) then

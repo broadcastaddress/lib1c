@@ -10,9 +10,7 @@
     box=range(0,256);
     for i=0 to 255 do
         x=(x+box[i]+charcode(mid(k,(i%l)+1,1)))%256;
-        t=box[i];
-        box[i]=box[x];
-        box[x]=t;
+        swap(box[i],box[x]);
     enddo;
     try
         l=strlen(s);
@@ -25,9 +23,7 @@
         cc=charcode(mid(s,i,1));
         x=(x+1)%256;
         y=(y+box[x])%256;
-        t=box[y];
-        box[y]=box[x];
-        box[x]=t;
+        swap(box[y],box[x]);
         res=res+char(convert.to_dec(bitwise.xor(cc,box[(box[x]+box[y])%256])));
     enddo;
     return res;
