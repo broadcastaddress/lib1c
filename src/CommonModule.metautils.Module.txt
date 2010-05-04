@@ -1,0 +1,53 @@
+﻿function guess_type(expr) export
+    metainfo=?(typeof(expr)=type("metadataobject"),
+                expr,metadata.findbytype(typeof(expr)));
+    if metainfo=undefined then
+        raise exception.ValueError("Metadata object expected",
+                                    new Structure("expr",expr));
+    endif;
+    _map=new map();
+    _map.insert(Constants,"valuemanagermodule");
+    _map.insert(Enums,"enumvalues");
+    _map.insert(Catalogs,"owners");
+    _map.insert(Documents,"posting");
+    _map.insert(ChartsOfCharacteristicTypes,"characteristicExtValues");
+    _map.insert(InformationRegisters,"informationRegisterPeriodicity");
+    _map.insert(AccumulationRegisters,"enableTotalsSplitting");
+    _map.insert(Tasks,"TaskNumberAutoPrefix");
+    for each item in _map do
+        try
+            temp=metainfo[item.value];
+            return item.key;
+        except
+        endtry;
+    enddo;
+    raise exception.ValueError("unsupported metadata value "+metainfo.fullname());
+endfunction
+
+function get_uuid(expr) export
+    metatype=metautils.guess_type(expr);
+    if metatype=Constants then
+        return re.search(ValueToStringInternal(expr),"/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i").group[1];
+    elsif metatype=Enums then
+        return re.search(ValueToStringInternal(expr),"/(\d+:[a-f0-9]{32})/i").group[1];
+    elsif metatype=InformationRegisters or metatype=AccumulationRegisters then
+        metainfo=metadata.findbytype(typeof(expr));
+        attrs=new Array();
+        for each attr in metainfo.dimensions do
+            attrs.add(expr[attr.name]);
+        enddo;
+        // crc64 не самая лучшая идея, но ничего другого у нас нет.
+        // составной хеш упростит сортировку и фильтрацию.
+        // чтобы операция не была тяжелой закешируем результат
+        part1=cache.get("hashes.crc64."+metainfo.name);
+        if part1=undefined then
+            part1=hashlib.crc64(metainfo.name);
+            cache.set("hashes.crc64."+metainfo.name,part1);
+        endif;
+        // смысл кешировать данные измерений нулевой, если только
+        // записи регистров очень часто обновляются. Но это не наш случай.
+        return part1+hashlib.crc64(string.join("|",attrs));
+    else
+        return xmlstring(expr.ref);
+    endif;
+endfunction

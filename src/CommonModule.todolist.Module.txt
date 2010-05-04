@@ -1,0 +1,84 @@
+﻿function _get_by_id(id)
+    task=tasks.todolist.findbynumber(id);
+    if task.isempty() then
+        raise exception.ValueError();
+    endif;
+    return task;
+endfunction
+
+function _list_free_tasks(key)
+    q=new Query("SELECT TOP 1 Number,Data 
+                |FROM Task.ToDoList 
+                |WHERE 
+                |   NOT Executed 
+                |       AND NOT Locked 
+                |       AND Description=&key 
+                |ORDER BY Number ASC");
+    list=new Array();
+    q.setparameter("key",key);
+    res=q.execute().choose();
+    while res.next() do
+        list.add(new structure("id,data",res.number,res.data.get()));
+    enddo;
+    return list;
+endfunction
+
+function get(key) export
+    res=_list_free_tasks(key);
+    return ?(res.count()>0,res[0],undefined);
+endfunction
+
+function list(key) export
+    return _list_free_tasks(key);
+endfunction
+
+function add(key,data) export
+    task=tasks.todolist.createTask();
+    task.description=key;
+    task.date=currentdate();
+    task.data=new valuestorage(data);
+    task.write();
+    return task.number;
+endfunction
+
+function lock(id) export
+    task=_get_by_id(id);
+    if task.locked then
+        msg="Task is already locked";
+        env=new Structure("id,key",id,task.description);
+        raise exception.BaseException("TaskLocked",msg,env);
+    endif;
+    obj=task.getobject();
+    try
+        obj.lock();
+        obj.locked=true;
+        obj.write();
+        obj.unlock();
+    except
+        msg="Task is already locked";
+        env=new Structure("id,key",id,task.description);
+        raise exception.BaseException("TaskLocked",msg,env);
+    endtry;
+    return True;
+endfunction
+
+function is_locked(id) export
+    return _get_by_id(id).locked;
+endfunction
+
+function release(id) export
+    obj=_get_by_id(id).getobject();
+    obj.locked=false;
+    obj.write();
+    return True;
+endfunction
+
+function done(id,data=undefined) export
+    obj=_get_by_id(id).getobject();
+    if data<>undefined then
+        obj.result=new valuestorage(data);
+    endif;
+    obj.when_was_done=currentdate();
+    obj.executeTask();
+    obj.write();
+endfunction

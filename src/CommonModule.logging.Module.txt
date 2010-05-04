@@ -1,0 +1,24 @@
+﻿function write_log(level,action,message="",obj=undefined)
+    if obj=undefined then
+        WriteLogEvent(action,level,,,message);
+    else
+        WriteLogEvent(action,level,metadata.findbytype(typeof(obj)),obj,message);
+    endif;
+    return True;
+endfunction
+
+function debug(action,message="",obj=undefined) export
+    return write_log(eventloglevel.note,action,message,obj);
+endfunction
+
+function info(action,message="",obj=undefined) export
+    return write_log(eventloglevel.info,action,message,obj);
+endfunction
+
+function warn(action,message="",obj=undefined) export
+    return write_log(eventloglevel.warning,action,message,obj);
+endfunction
+
+function error(action,message="",obj=undefined) export
+    return write_log(eventloglevel.error,action,message,obj);
+endfunction
