@@ -21,13 +21,16 @@
 //                  string --> string
 //                    date --> string(RFC 3339)
 //                   array --> array
-//                     ref --> строка с UUID
+//                     ref --> string(UUID)
 //               structure --> object
 //                     map --> object
 //                    type --> string
-//         metadata-object --> object
+//         metadata object --> object
+//               valuelist --> array of objects
+//              valuetable --> array of objects
 //            valuestorage --> base64-encoded string
 //              binarydata --> base64-encoded string
+//                 picture --> base64-encoded string
 function encode(expr) export
     if metadata.findbytype(typeof(expr))<>undefined then
         return encoder(convert.to_structure(expr));
@@ -63,7 +66,10 @@ endfunction
 //            object --> map
 function decode(jsonstr) export
     if typeof(jsonstr)<>type("string") then
-        raise exception.TypeError();
+        raise exception.TypeError(
+            "JSON decoder expected jsonstr as <string>",
+            new Structure("jsonstr",jsonstr)
+        );
     endif;
     res=scanner(jsonstr,1);
     obj=res[0];end=res[1];
@@ -125,10 +131,37 @@ function encoder(expr)
         return encoder(metautils.get_uuid(expr));
     elsif tval=type("valuestorage") or tval=type("binarydata") then
         return encoder(xmlstring(expr));
+    elsif tval=type("valuelist") then
+        res=new Array();
+        for each item in expr do
+            res.add(
+                new Structure(
+                    "check,picture,presentation,value",
+                    item.check,
+                    item.picture,
+                    item.presentation,
+                    item.value
+                )
+            );
+        enddo;
+        return encoder(res);
+    elsif tval=type("valuetable") then
+        res=new Array();
+        for each item in expr do
+            s=new Structure();
+            for each col in expr.columns do
+                s.insert(col.name,item[col.name]);
+            enddo;
+            res.add(s);
+        enddo;
+        return encoder(res);
+    elsif tval=type("picture") then
+        return encoder(xmlstring(expr.getBinaryData()));
     else
         raise exception.ValueError(
-                "Unable to convert expr to json. No rules how to do that.",
-                new Structure("expr",expr));
+                "Unable to convert `expr` to json. No rules how to do that.",
+                new Structure("expr",expr)
+        );
     endif;
 endfunction
 
