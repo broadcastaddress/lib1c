@@ -112,6 +112,7 @@ endfunction
 //             number -- без изменений
 //             string -- перевод в число из системы base
 //              array -- если `value` является бинарным массивом
+//
 function to_number(value,base=10) export
     tval=typeof(value);
     if value=undefined then
@@ -123,7 +124,17 @@ function to_number(value,base=10) export
     elsif tval=type("string") then
         if base=10 then
             try
-                return number(trimall(value));
+                res=number(value);
+                // 1С позволяет ковертировать пустые строки и
+                // строки, состоящие из допустимных символов чиcла,
+                // к 0. Не знаю, по какой логике "-"=0, но в данной
+                // функции такой фокус не пройдет.
+                if isblankstring(value)
+                   or strlen(value)=1 and (find("-=+,.",value)>0)
+                then
+                   raise ""; // dummy exception
+                endif;
+                return res;
             except
                 raise exception.ValueError(
                     "Unable to convert value to number",
@@ -215,10 +226,12 @@ function to_string(value,in_quotes=False) export
     elsif tval=type("array") or tval=type("fixedarray") then
         str="";
         len=value.ubound();
-        str=to_string(value[0],True);
-        for i=1 to len do
-            str=str+","+to_string(value[i],True);
-        enddo;
+        if len>0 then
+            str=to_string(value[0],True);
+            for i=1 to len do
+                str=str+","+to_string(value[i],True);
+            enddo;
+        endif;
         return "("+str+")";
     elsif tval=type("structure") or tval=type("map") then
         str="";
@@ -255,16 +268,16 @@ function expand_object(object,factory)
         factory.insert("value",string(object));
     elsif metatype=InformationRegisters or metatype=AccumulationRegisters then
         templates=undefined;
+        factory.insert("linenumber",object["linenumber"]);
         factory.insert("active",object["active"]);
         factory.insert("period",object["period"]);
         factory.insert("recorder",object["recorder"]);
-        if metatype=AccumulationRegisters then
-            factory.insert("pointintime",
+        factory.insert("pointintime",
                       new Structure("date,ref",
-                                    object["pointintime"].date,
-                                    object["pointintime"].ref)
-            );
-        endif;
+                                    object.pointintime().date,
+                                    object.pointintime().ref
+                      )
+        );
         for each attr in metainfo.attributes do
             factory.insert(attr.name,object[attr.name]);
         enddo;
@@ -331,6 +344,9 @@ endfunction
 //  Параметры:
 //      object -- объект метаданных
 //
+//  Возвращает:
+//      <structure>
+//
 //    Исключения:
 //      TypeError -- если object не объект метаданных
 //
@@ -338,11 +354,14 @@ function to_structure(object) export
     return expand_object(object,new structure);
 endfunction
 
-//function to_structure(object)
+//function to_map(object)
 //  Конвертирует объект метаданных в соответствие
 //
 //  Параметры:
 //      object -- объект метаданных
+//
+//  Возвращает:
+//      <map>
 //
 //    Исключения:
 //      TypeError -- если object не объект метаданных
