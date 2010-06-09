@@ -1,0 +1,323 @@
+﻿//function XMLHTTPError(msg=undefined,env=undefined)
+//  Исключение, вызываемое в случае ошибок объекта XMLHTTPRequest
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function XMLHTTPError(msg=undefined,env=undefined)
+    return exception.BaseException("XMLHTTPError",msg,env);
+endfunction
+
+//function HTTPError(status,msg,env=undefined)
+//  Базовое исключение для ошибок, основанных на коде HTTP-статуса >=400
+//
+//  Параметры:
+//      status <number> -- код состояния HTTP.
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function HTTPError(status,msg,env=undefined) export
+    return exception.BaseException("HTTPError["+string(status)+"]",msg,env);
+endfunction
+
+//function PreconditionFailed(msg,env=undefined)
+//  Исключение для случаев, когда в ответ возвращается 412 код ошибки
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function PreconditionFailed(msg,env=undefined) export
+    return exception.BaseException("PreconditionFailed",msg,env);
+endfunction
+
+//function ResourceNotFound(msg,env=undefined)
+//  Исключение вызывается когда запрашиваемый ресурс не найдет на сервере.
+//  Код HTTP-статуса 404.
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function ResourceNotFound(msg,env=undefined) export
+    return exception.BaseException("ResourceNotFound",msg,env);
+endfunction
+
+//function ResourceConflict(msg,env=undefined)
+//  Исключение вызывается в случае, когда запрос привел к конфликту ресурсов.
+//  Код HTTP-статуса 409.
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function ResourceConflict(msg,env=undefined) export
+    return exception.BaseException("ResourceConflict",msg,env);
+endfunction
+
+//function ServerError(msg,status,env=undefined)
+//  Исключение вызывается в случае непредвиденной ошибки сервера.
+//  Код HTTP-статуса >=500.
+//
+//  Параметры:
+//      status <number> -- код состояния HTTP.
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function ServerError(status,msg,env=undefined) export
+    return exception.BaseException("ServerError["+string(status)+"]",msg,env);
+endfunction
+
+//function Unauthorized(msg,env=undefined)
+//  Исключение вызывается в случае неавторизованного доступа к ресурсу.
+//  Код состояния HTTP - 403.
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function Unauthorized(msg,env=undefined) export
+    return exception.BaseException("Unauthorized",msg,env);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function Request(method="GET",url="",body=null,headers=undefined)
+//  Создает структуру http-запроса.
+//
+//  Параметры:
+//      method <string> -- тип запроса (GET, POST, PUT, DELETE, HEAD, etc.)
+//         url <string> -- адрес ресурса
+//           body <any> -- тело запроса (для POST/PUT запросов)
+//        headers <map> -- заголовки запроса
+//
+//  Возвращает:
+//      <structure:[
+//          method <string>,
+//          url <structure:[
+//                  scheme <string>,
+//                  username <string>,
+//                  password <string>,
+//                  host <string>,
+//                  port <number>,
+//                  path <string>,
+//                  query <map>,
+//                  anchorn <string>
+//          ]>
+//          body <string>,
+//          headers <map>
+//      ]>
+//
+function Request(method="GET",url="",body=null,headers=undefined) export
+    if not check.is_string(method) then
+        msg="Request method must be string type";
+        raise exception.TypeError(msg,new Structure("url,method",url,method));
+    endif;
+    
+    if not check.is_string(url) then
+        msg="Request url must be string type";
+        raise exception.TypeError(msg,new Structure("url,method",url,method));
+    endif;
+    
+    req=new Structure();
+    req.insert("method",upper(method));
+    if url<>"" then
+        req.insert("url",urllib.split(url));
+    endif;
+    if req.method="POST" or req.method="PUT" then
+        if req.url.query.count()>0 then
+            req.url.query.insert(body,"");
+            req.insert("body",urllib.query_encode(req.url.query));
+        else
+            req.insert("body",body);
+        endif;
+    else
+        req.insert("body",null);
+    endif;
+    req.insert("headers",new Map());
+    // force to disable IE cache
+    req.headers.insert("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
+    return req;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function _prepare_request(req)
+    if not check.hasattr(req,"url,method,headers") then
+        msg="Request must have following attributes: url,method,headers";
+        raise exception.ValueError(msg,new Structure("req",req));
+    endif;
+    
+    if not (check.is_string(req.url) or check.is_structure(req.url)) then
+        msg="Request url must be string or structure type";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    
+    if not check.is_string(req.method) then
+        msg="Request method must be string type";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    
+    if not check.is_map(req.headers) then
+        msg="Request headers must be mapping";
+        raise exception.TypeError(msg,new Structure("req",req));
+    endif;
+    
+    for each header in req.headers do
+        if not check.is_string(header.key) then
+            msg="Request header name must be string";
+            s=new Structure("req,header.key,header.value",
+                             req,header.key,header.value);
+            raise exception.TypeError(msg,s);
+        endif;
+        if not (check.is_string(header.value) 
+                or check.is_number(header.value)) then
+            msg="Request header value must be string or number";
+            s=new Structure("req,header.key,header.value",
+                             req,header.key,header.value);
+            raise exception.TypeError(msg,s);
+        endif;
+    enddo;
+    
+    if req.url.username<>undefined then
+        authinfo=req.url.username+":"+?(req.url.password<>undefined,
+                                        req.url.password,"");
+        req.insert("Authorization","Basic "+string.base64encode(authinfo));
+    endif;
+    
+    return req;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function send(req)
+//  Отправляет запрос и возвращает результат.
+//
+//  Параметры:
+//      req <structure> -- структура HTTP-запроса, созданная методом Request
+//                         или имеющая аналогичный состав ключей/значений
+//
+//  Возвращает:
+//      <structure>
+//
+function send(req) export
+    _prepare_request(req);
+    try
+        XMLHTTPRequest=new COMObject("MSXML2.XMLHTTP.3.0");
+    except
+        try
+            XMLHTTPRequest=new COMObject("Msxml2.XMLHTTP");
+        except
+            try
+                XMLHTTPRequest=new COMObject("Microsoft.XMLHTTP");
+            except
+                raise XMLHTTPError(errorInfo().description);
+            endtry;
+        endtry;
+    endtry;
+    try
+        XMLHTTPRequest.open(req.method,urllib.unsplit(req.url),false);
+        for each item in req.headers do
+            XMLHTTPRequest.setRequestHeader(item.key,item.value);
+        enddo;
+        XMLHTTPRequest.send(req.body);
+    except
+        raise XMLHTTPError(errorInfo().description,new Structure("req",req));
+    endtry;
+    return response(XMLHTTPRequest,req);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function response(XMLHTTPRequest,req)
+    res=new Structure();
+    // атрибуты объекта XMLHTTPRequest.
+    // давайте условимся, что эти атрибуты будут неизменяемые
+    // чтобы оставить возможность доступа к изначальному результату
+    // ответа на запрос, если оно когда нибудь понадобится
+    res.insert("readyState",XMLHTTPRequest.readyState);
+    res.insert("responseText",XMLHTTPRequest.responseText);
+    res.insert("responseXML",XMLHTTPRequest.responseXML);
+    res.insert("status",XMLHTTPRequest.status);
+    res.insert("statusText",XMLHTTPRequest.statusText);
+    // добавим возможность доступа к заголовкам ответа
+    headers=new map();
+    hlist=string.split(XMLHTTPRequest.getAllResponseHeaders(),chars.cr+chars.lf);
+    for each hrow in hlist do
+        if hrow<>"" then
+            hpart=string.split(hrow,":",1);
+            headers.insert(trimall(hpart[0]),trimall(hpart[1]));
+        endif;
+    enddo;
+    res.insert("headers",headers);
+    res.insert("request",req);
+    // сделаем копию атрибута responseText, для возможности непосредственного
+    // изменения значения относительно логики обработки ответа, сохранив
+    // первоначальное значение. Не добавит ли это проблем с памятью в будущем?
+    res.insert("data",res.responseText);
+    return res;
+endfunction
+
+//function open(method,url,body=null,headers=undefined)
+//  Высокоуровневая надстройка над Request и send с обработкой результата
+//  и выбросом исключения в случае HTTP ошибок (код состояния >=400)
+//
+//  Параметры:
+//      method <string> -- тип запроса (GET, POST, PUT, DELETE, HEAD, etc.)
+//         url <string> -- адрес ресурса
+//           body <any> -- тело запроса (для POST/PUT запросов)
+//        headers <map> -- заголовки запроса
+//
+//  Возвращает:
+//      <string>
+//
+//  Описание:
+//      Данный метод возвращает значение атрибута XMLHTTPRequest.responseText.
+//      Если вам необходим более гибкий контроль поведения, используйте
+//      связку send(Request(...))
+//
+function open(method,url,body=null,headers=undefined) export
+    req=Request(method,url,body,headers);
+    res=send(req);
+    if res.status>=400 then
+        msg=res.responseText;
+        env=new structure("method,url,body,headers,req,res",
+                           method,url,body,headers,req,res);
+        if res.status=401 or res.status=403 then
+            raise httplib.Unauthorized(msg,env);
+        elsif res.status=404 then
+            raise httplib.ResourceNotFound(msg,env);
+        elsif res.status=409 then
+            raise httplib.ResourceConflict(msg,env);
+        elsif res.status=412 then
+            raise httplib.PreconditionFailed(msg,env);
+        elsif res.status>=500 then
+            raise httplib.ServerError(res.status,msg,env);
+        else
+            raise httplib.HTTPError(res.status,msg,env);
+        endif;
+    endif;
+    return res.responseText;
+endfunction

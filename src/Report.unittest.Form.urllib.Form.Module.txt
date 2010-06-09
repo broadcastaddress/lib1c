@@ -1,0 +1,215 @@
+﻿function set_up() export
+
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    suite.add("split__parse_defaults");
+    suite.add("split__parse_no_colon");
+    suite.add("split__parse_just_colon");
+    suite.add("split__parse_just_relative_database");
+    suite.add("split__parse_just_absolute_database");
+    suite.add("split__parse_host");
+    suite.add("split__parse_username");
+    suite.add("split__parse_username_password");
+    suite.add("split__parse_username_host");
+    suite.add("split__parse_username_password_host");
+    suite.add("split__parse_username_password_host_port");
+    suite.add("split__parse_username_password_host_empty_port");
+    suite.add("split__parse_username_password_host_port_database");
+    suite.add("split__parse_username_password_database");
+    suite.add("split__parse_params");
+    suite.add("split__parse_host_params");
+    suite.add("split__parse_host_path_params");
+    //suite.add("split__copy");
+    suite.add("split__str_no_path_escaping");
+    suite.add("split__str_scheme_only");
+    suite.add("split__str_username_only");
+    suite.add("split__str_password_only");
+    suite.add("split__str_port_only");
+    suite.add("split__str_host_only");
+    suite.add("split__str_database_only");
+    suite.add("split__str_option_only");
+    return suite;
+endfunction
+
+function tear_down() export
+
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Port of StORM uri tests written by Gustavo Niemeyer <gustavo@niemeyer.net>
+// 
+
+function split__parse_defaults() export
+    uri=urllib.split("scheme:");
+    assert.is_equal(uri.scheme, "scheme","scheme must be undefined");
+    assert.is_equal(uri.query, new map(),"query must be empty map");
+    assert.is_equal(uri.username, undefined,"username must be undefined");
+    assert.is_equal(uri.password, undefined,"password must be undefined");
+    assert.is_equal(uri.host, undefined,"host must be undefined");
+    assert.is_equal(uri.port, undefined,"port must be undefined");
+    assert.is_equal(uri.path, undefined,"path must be undefined");
+endfunction
+
+function split__parse_no_colon() export
+    //self.assertRaises(URIError, URI, "scheme");
+endfunction
+
+function split__parse_just_colon() export
+    uri=urllib.split("scheme:");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.path, undefined);
+endfunction
+
+function split__parse_just_relative_database() export
+    uri=urllib.split("scheme:d%61ta/base");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.path, "data/base");
+endfunction
+
+function split__parse_just_absolute_database() export
+    uri=urllib.split("scheme:/d%61ta/base");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.path, "/data/base");
+endfunction
+
+function split__parse_host() export
+    uri=urllib.split("scheme://ho%73t");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.host, "host");
+endfunction
+
+function split__parse_username() export
+    uri=urllib.split("scheme://user%6eame@");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.host, undefined);
+endfunction
+
+function split__parse_username_password() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, undefined);
+endfunction
+
+function split__parse_username_host() export
+    uri=urllib.split("scheme://user%6eame@ho%73t");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.host, "host");
+endfunction
+
+function split__parse_username_password_host() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@ho%73t");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, "host");
+endfunction
+
+function split__parse_username_password_host_port() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@ho%73t:1234");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, "host");
+    assert.is_equal(uri.port, 1234);
+endfunction
+
+function split__parse_username_password_host_empty_port() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@ho%73t:");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, "host");
+    assert.is_equal(uri.port, undefined);
+endfunction
+
+function split__parse_username_password_host_port_database() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@ho%73t:1234/d%61tabase");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, "host");
+    assert.is_equal(uri.port, 1234);
+    assert.is_equal(uri.path, "database");
+endfunction
+
+function split__parse_username_password_database() export
+    uri=urllib.split("scheme://user%6eame:pass%77ord@/d%61tabase");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.username, "username");
+    assert.is_equal(uri.password, "password");
+    assert.is_equal(uri.host, undefined);
+    assert.is_equal(uri.port, undefined);
+    assert.is_equal(uri.path, "database");
+endfunction
+
+function split__parse_params() export
+    uri=urllib.split("scheme:?a%62c=d%65f&ghi=jkl");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.host, undefined);
+    assert.is_equal(uri.path, undefined);
+    assert.is_equal(uri.query["abc"],"def");
+    assert.is_equal(uri.query["ghi"],"jkl");
+endfunction
+
+function split__parse_host_params() export
+    uri=urllib.split("scheme://ho%73t?a%62c=d%65f&ghi=jkl");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.host, "host");
+    assert.is_equal(uri.path, undefined);
+    assert.is_equal(uri.query["abc"],"def");
+    assert.is_equal(uri.query["ghi"],"jkl");
+endfunction
+
+function split__parse_host_path_params() export
+    uri=urllib.split("scheme://ho%73t/d%61tabase?a%62c=d%65f&ghi=jkl&&debug");
+    assert.is_equal(uri.scheme, "scheme");
+    assert.is_equal(uri.host, "host");
+    assert.is_equal(uri.path, "database");
+    assert.is_equal(uri.query["abc"],"def");
+    assert.is_equal(uri.query["ghi"],"jkl");
+    assert.is_equal(uri.query["debug"],"");
+endfunction
+
+function _str(uri)
+    assert.is_equal(urllib.unsplit(urllib.split(uri)),uri);
+endfunction
+
+function split__str_no_path_escaping() export
+    _str("scheme:/a/b/c");
+endfunction
+
+function split__str_scheme_only() export
+    _str("scheme:");
+endfunction
+
+function split__str_username_only() export
+    _str("scheme://username@/");
+endfunction
+
+function split__str_password_only() export
+    _str("scheme://:password@/");
+endfunction
+
+function split__str_port_only() export
+    _str("scheme://:0/");
+endfunction
+
+function split__str_host_only() export
+    _str("scheme://host/");
+endfunction
+
+function split__str_database_only() export
+    _str("scheme:db");
+endfunction
+
+function split__str_option_only() export
+    _str("scheme:?a=b");
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////

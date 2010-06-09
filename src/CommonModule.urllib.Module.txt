@@ -1,170 +1,36 @@
-﻿function XMLHTTPError(msg=undefined,env=undefined)
-    return exception.BaseException("XMLHTTPError",msg,env);
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function Request(url="",method="GET",query=undefined,headers=undefined) export
-    if not check.is_string(url) then
-        msg="Request url must be string type";
-        raise exception.TypeError(msg,new Structure("url,method",url,method));
-    endif;
-    if not check.is_string(method) then
-        msg="Request method must be string type";
-        raise exception.TypeError(msg,new Structure("url,method",url,method));
-    endif;
-    req=new Structure();
-    if url<>"" then
-        req.insert("url",urlsplit(url));
-    endif;
-    req.insert("method",upper(method));
-    req.insert("query",req.url.query);
-    req.insert("headers",new Map());
-    return req;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function _prepare_request(req)
-    if not check.hasattr(req,"url,method,query,headers") then
-        msg="Request must have following attributes: url,method,query,headers";
-        raise exception.ValueError(msg,new Structure("req",req));
-    endif;
-    if not (check.is_string(req.url) or check.is_structure(req.url)) then
-        msg="Request url must be string or structure type";
-        raise exception.TypeError(msg,new Structure("req",req));
-    endif;
-    if not check.is_string(req.method) then
-        msg="Request method must be string type";
-        raise exception.TypeError(msg,new Structure("req",req));
-    endif;
-    if not check.is_map(req.headers) then
-        msg="Request headers must be mapping";
-        raise exception.TypeError(msg,new Structure("req",req));
-    endif;
-    for each header in req.headers do
-        if not check.is_string(header.key) then
-            msg="Request header name must be string";
-            s=new Structure("req,header.key,header.value",
-                             req,header.key,header.value);
-            raise exception.TypeError(msg,s);
-        endif;
-        if not (check.is_string(header.value) 
-                or check.is_number(header.value)) then
-            msg="Request header value must be string or number";
-            s=new Structure("req,header.key,header.value",
-                             req,header.key,header.value);
-            raise exception.TypeError(msg,s);
-        endif;
-    enddo;
-    if req.method="GET" or req.method="HEAD" or req.method="DELETE" then
-        req.insert("send",Null);
-    else
-        if check.is_structure_or_map(req.query) then
-            req.insert("send",query_encode(req.query));
-        else
-            req.insert("send",req.query);
-        endif;
-        req.url["query"]=new Map();
-    endif;
-    return req;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function send(req) export
-    _prepare_request(req);
-    try
-        XMLHTTPRequest=new COMObject("MSXML2.XMLHTTP.3.0");
-    except
-        try
-            XMLHTTPRequest=new COMObject("Msxml2.XMLHTTP");
-        except
-            try
-                XMLHTTPRequest=new COMObject("Microsoft.XMLHTTP");
-            except
-                raise XMLHTTPError(errorInfo().description);
-            endtry;
-        endtry;
-    endtry;
-    try
-        XMLHTTPRequest.open(req.method,urlunsplit(req.url),false);
-        for each item in req.headers do
-            XMLHTTPRequest.setRequestHeader(item.key,item.value);
-        enddo;
-        // force to disable IE cache
-        XMLHTTPRequest.setRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT");
-        XMLHTTPRequest.send(req.send);
-    except
-        raise XMLHTTPError(
-            errorInfo().description,
-            new Structure("req",req)
-        );
-    endtry;
-    return response(XMLHTTPRequest,req);
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-
-function response(XMLHTTPRequest,req)
-    res=new Structure();
-    // default attrs.
-    // let's agree that that attrs will be read-only to keep
-    // access to raw response whatever it will be needed
-    res.insert("readyState",XMLHTTPRequest.readyState);
-    res.insert("responseText",XMLHTTPRequest.responseText);
-    res.insert("responseXML",XMLHTTPRequest.responseXML);
-    res.insert("status",XMLHTTPRequest.status);
-    res.insert("statusText",XMLHTTPRequest.statusText);
-    // custom attrs
-    headers=new map();
-    hlist=string.split(XMLHTTPRequest.getAllResponseHeaders(),
-                       chars.cr+chars.lf);
-    for each hrow in hlist do
-        if hrow<>"" then
-            hpart=string.split(hrow,":",1);
-            headers.insert(trimall(hpart[0]),trimall(hpart[1]));
-        endif;
-    enddo;
-    res.insert("headers",headers);
-    res.insert("request",req);
-    res.insert("data",res.responseText); // copy responseText property
-    // for conversions and changes while default answer will be keeped 
-    // unchanged. will this make memory problems in future?
-    return res;
-endfunction
-
-/////////////////////////////////////////////////////////////////////////////
-// Parsing:
-
-function mkpair(v,c)
+﻿function mkpair(v,c)
     return ?(find(v,c)>0,string.split(v,c,1),pair(v,undefined));
 endfunction
 
-//function urlsplit(url)
+//function split(url)
 //  Разбивает url на структуру вида:
 //    <scheme>://<username>:<password>@<host>:<port>/<path>?<query>#<anchorn>
 //
-//    Параметры:
+//  Параметры:
 //      url <string> -- url строка
 //
-//    Возвращает:
-//      <structure>:[scheme,username,password,host,port,path,query,anchorn]
+//  Возвращает:
+//      <structure:[
+//          scheme <string>,
+//          username <string>,
+//          password <string>,
+//          host <string>,
+//          port <number>,
+//          path <string>,
+//          query <map>,
+//          anchorn <string>
+//      ]>
 //
-//    Описание:
+//  Описание:
 //      Если отсутствует какой либо компонент адреса url, он заменяется на
-//      пустое значение типа секции. Секции типизированны следующим образом:
-//          scheme,username,password,host,path,anchorn - <string>
-//          query - <map>
-//           port - <number>
-//
+//      пустое значение типа секции.
 //      При разборе url декодирует экранированные символы.
-//
 //      Метод urlunsplit собирает полученный результат в исходную строку.
-function urlsplit(url) export
+function split(url) export
     urlstruct=new Structure("scheme,username,password,host,
                             |port,path,query,anchorn",
-                            "","","","",0,"",new map(),"");
+                            undefined,undefined,undefined,undefined,
+                            undefined,undefined,new map(),undefined);
     if find(url,":")>0 then
         res=mkpair(url,":");
         scheme=res[0];
@@ -189,7 +55,6 @@ function urlsplit(url) export
         for each item in string.split(query,"&") do
             if item<>"" then
                 res=mkpair(item,"=");
-                // handles situations when query is like key=value&debug
                 if res[1]=undefined then
                     urlstruct.query.insert(unquote(res[0]),"");
                 else
@@ -197,6 +62,9 @@ function urlsplit(url) export
                 endif;
             endif;
         enddo;
+    endif;
+    if rest="" then
+        return urlstruct;
     endif;
     if not mid(rest,1,2)="//" then
         urlstruct.path=unquote(rest);
@@ -332,39 +200,41 @@ function splitvalue(attr) export
     return ?(res<>undefined,res.groups,pair(attr,undefined));
 endfunction
 
-function urlunsplit(url) export
+function unsplit(url) export
     if not check.hasattr(url,"scheme,username,password,
                              |host,port,path,anchorn") then
-        raise exception.ValueError("Invalid url structure given",new Structure("url",url));
+        msg="Invalid url structure given";
+        env=new Structure("url",url);
+        raise exception.ValueError(msg,env);
     endif;
-    res=url.scheme+":";
-    if url["username"]<>"" or url["host"]<>"" then
+    if url["scheme"]<>undefined then
+        res=url["scheme"]+":";
+    endif;
+    if url["username"]<>undefined or url["host"]<>undefined then
         res=res+"//";
-        if url["username"]<>"" then
+        if url["username"]<>undefined then
             res=res+quote(url["username"],"");
-            if url["password"]<>"" then
+            if url["password"]<>undefined then
                 res=res+":"+quote(url["password"],"");
             endif;
             res=res+"@";
         endif;
-        if url["host"]<>"" then
+        if url["host"]<>undefined then
             res=res+quote(url["host"],"");
-            if url["port"]<>0 then
+            if url["port"]<>undefined then
                 res=res+":"+convert.to_string(url["port"]);
             endif;
         endif;
         res=res+"/";
     endif;
-    if url["path"]<>"" then
-        res=res+quote(?(string.startswith(url["path"],"/"),
-                        mid(url["path"],2),
-                        url["path"]));
+    if url["path"]<>undefined then
+        res=res+quote(url["path"]);
     endif;
     qs=query_encode(url["query"]);
     if qs<>"" then
         res=res+"?"+qs;
     endif;
-    if url["anchorn"]<>"" then
+    if url["anchorn"]<>undefined then
         res=res+"#"+quote(url["anchorn"],"");
     endif;
     return res;
@@ -424,9 +294,9 @@ function join(base,url) export
     if metadata.commonmodules.find("cache")<>undefined then
         cache.set("urllib.schemas",schemas);
     endif;
-    bstr=urlsplit(base); //base structure
-    jstr=urlsplit(url);  //join structure
-    if jstr.scheme="" then
+    bstr=urllib.split(base); //base structure
+    jstr=urllib.split(url);  //join structure
+    if jstr.scheme=undefined then
         jstr.scheme=bstr.scheme;
     endif;
     if bstr.scheme<>jstr.scheme 
@@ -434,7 +304,7 @@ function join(base,url) export
         return url;
     endif;
     if schemas["uses_netloc"].find(jstr.scheme)<>undefined then
-        if jstr.host<>"" then
+        if jstr.host<>undefined then
             return url;
         endif;
         jstr.username=bstr.username;
@@ -442,20 +312,24 @@ function join(base,url) export
         jstr.host=bstr.host;
         jstr.port=bstr.port;
     endif;
-    if string.startswith(jstr.path,"/") then
-        return urlunsplit(jstr);
-    endif;
-    if jstr.path="" then
+    if jstr.path=undefined then
         jstr.path=bstr.path;
         if jstr.query.count()=0 then
             jstr.query=bstr.query;
         endif;
-        return urlunsplit(jstr);
+        return urllib.unsplit(jstr);
     endif;
-    segments=array.merge(
-                string.split(bstr.path,"/"),
-                string.split(jstr.path,"/")
-             );
+    if string.startswith(jstr.path,"/") then
+        return urllib.unsplit(jstr);
+    endif;
+    if bstr.path<>undefined then
+        segments=array.merge(
+                    string.split(bstr.path,"/"),
+                    string.split(jstr.path,"/")
+                 );
+    else
+        segments=string.split(jstr.path,"/");
+    endif;
     if segments[segments.ubound()]="." then
         segments[segments.ubound()]="";
     endif;
@@ -487,7 +361,7 @@ function join(base,url) export
         segments.delete(segments.ubound());
     endif;
     jstr.path=string.join("/",segments);
-    return urlunsplit(jstr);
+    return urllib.unsplit(jstr);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
