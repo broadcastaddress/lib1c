@@ -46,7 +46,13 @@ function start()
                         errors.insert(row.rowid,subtest.error);
                     endif;
                 enddo;
+            elsif test_row.result=unittest.RESULT.FAILED then
+                failed=failed+1;
+                controls.UnittestReport.expand(test_row.parent,True);
+                test_row.rowid=string(new uuid());
+                errors.insert(test_row.rowid,test.value.error);
             endif;
+            
             if test_row.result<>unittest.result.FAILED then
                 test_row.result=unittest.result.PASSED;
             endif;

@@ -1,11 +1,11 @@
-﻿var result export;
-var values export;
+﻿var RESULT export;
+var VALUES export;
 
 function test_info()
     res=new Structure();
     res.insert("name","");
     res.insert("behavior","");
-    res.insert("result","");
+    res.insert("RESULT","");
     return res;
 endfunction
 
@@ -14,12 +14,12 @@ function split_test_name(s)
     p=find(s,"__");
     res.name=mid(s,1,p-1);
     i=strlen(s);
-    while mid(s,i,1)<>"_" and mid(s,i-1,1)<>"_" and i<>0 do
+    while not(mid(s,i,1)="_" and mid(s,i-1,1)="_") and i<>0 do
         i=i-1;
     enddo;
     if i<>0 then
-        descr=mid(s,p+2,i-p-4);
-        behavior=mid(s,i);
+        descr=mid(s,p+2,i-p-3);
+        behavior=mid(s,i+1);
         if descr=behavior then
             behavior="";
         endif;
@@ -41,24 +41,24 @@ function set_up(form)
 endfunction
 
 function run_test(form,fname,args=undefined,val behavior)
-    lobehavior=lower(behavior);
+    behavior=lower(behavior);
     try
         execute("form."+fname+?(args=undefined,"()","(args)"));
     except
         err=exception.catch(errorinfo());
-        if find(lobehavior,"fail")<>0 then
+        if find(behavior,"fail")<>0 then
             return undefined;
         endif;
-        if find(lobehavior,"exception")<>0 or find(lobehavior,"error")<>0 then
-            assert(lower(err.type)=lobehavior,"Occured exception is not expected one",
+        if find(behavior,"exception")<>0 or find(behavior,"error")<>0 then
+            assert(lower(err.type)=behavior,"Occured exception is not expected one",
                                             new Structure("occured,expected",err.type,behavior));
             return undefined;
         endif;
         raise exception.throw();
     endtry;
-    if find(lobehavior,"fail")<>0 
-        or find(lobehavior,"exception")<>0 
-        or find(lobehavior,"error")<>0 then
+    if find(behavior,"fail")<>0 
+        or find(behavior,"exception")<>0 
+        or find(behavior,"error")<>0 then
         assert(false,"Exception expected during this test",
                      new Structure("fname,args,behavior",fname,args,behavior));
     endif;
@@ -84,7 +84,7 @@ function run() export
         try
             suite=form.get_suite();
         except
-            current_test.result=result.FAILED;
+            current_test.RESULT=RESULT.FAILED;
             current_test.insert("error",errorinfo().Description);
             continue;
         endtry;
@@ -95,17 +95,14 @@ function run() export
             test.name=funcinfo.name;
             test.behavior=funcinfo.behavior;
             try
-                //
                 args=set_up(form);
-                //
                 run_test(form,fname,args,funcinfo.behavior);
-                //
                 tear_down(form);
-                //
-                test.result=result.PASSED;
+                test.RESULT=RESULT.PASSED;
             except
-                test.insert("error",errorinfo().Description);
-                test.result=result.FAILED;
+                x=errorinfo();
+                test.insert("error",x.Description);
+                test.RESULT=RESULT.FAILED;
             endtry;
             if current_test.tests.property(funcinfo.name) then
                 test.name=funcinfo.descr;
@@ -136,50 +133,68 @@ function run() export
     return res;
 endfunction
 
-result=new Structure("PASSED,FAILED,UNKNOWN","PASSED","FAILED","UNKNOWN");
+RESULT=new Structure("PASSED,FAILED,UNKNOWN","PASSED","FAILED","UNKNOWN");
 
-values=new Structure();
-    values.insert("null",null);
-    values.insert("undefined",undefined);
-    values.insert("booleans",new Structure);
-    values.booleans.insert("true",true);
-    values.booleans.insert("false",false);
-    values.insert("numbers",new Structure);
-    values.numbers.insert("zero",0);
-    values.numbers.insert("integer",1234567890);
-    values.numbers.insert("real",-987654.0321);
-    values.numbers.insert("answer",42);
-    values.numbers.insert("over9k",90000000000000000000000000.00000000000000000000000009);
-    values.insert("strings",new Structure);
-    values.strings.insert("empty","");
-    values.strings.insert("spaced","          s"+chars.cr+"p"+chars.cr+"a"+chars.cr+"c"+chars.cr+"e"+chars.cr+"d           ");
-    values.strings.insert("all"," abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZАБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгеёжзийклмнопрстуфхцчшщъыьэюя1234567890~!@#$%^&*()_+,./;'\[]{}:""|<?>"+chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
-    values.strings.insert("en_alpha_lcase","abcdefghijklmnopqrstuvwyz");
-    values.strings.insert("en_ALPHA_UCASE","ABCDEFGHIJKLMNOPQRSTUVWYZ");
-    values.strings.insert("ru_alpha_lcase","абвгеёжзийклмнопрстуфхцчшщъыьэюя");
-    values.strings.insert("ru_ALPHA_UCASE","АБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ");
-    values.strings.insert("digits","1234567890");
-    values.strings.insert("digits2","-987654.0321");
-    values.strings.insert("spec_chars","~!@#$%^&*()_+,./;'\[]{}:""|<?>");
-    values.strings.insert("spec_chars2",chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
-    values.strings.insert("date","06.06.1234 11:12:13");
-    values.strings.insert("date2",string(currentdate()));
-    values.strings.insert("uuid",string(new uuid()));
-    values.strings.insert("quotes","""""""""""""Quote hell""""""""""""""");
-    values.strings.insert("moo"," ^__^
+VALUES=new Structure();
+    VALUES.insert("null",null);
+    VALUES.insert("undefined",undefined);
+    VALUES.insert("booleans",new Structure);
+    VALUES.booleans.insert("true",true);
+    VALUES.booleans.insert("false",false);
+    VALUES.insert("numbers",new Structure);
+    VALUES.numbers.insert("zero",0);
+    VALUES.numbers.insert("integer",1234567890);
+    VALUES.numbers.insert("real",-987654.0321);
+    VALUES.numbers.insert("answer",42);
+    VALUES.numbers.insert("over9k",90000000000000000000000000.00000000000000000000000009);
+    VALUES.insert("strings",new Structure);
+    VALUES.strings.insert("empty","");
+    VALUES.strings.insert("spaced","          s"+chars.cr+"p"+chars.cr+"a"+chars.cr+"c"+chars.cr+"e"+chars.cr+"d           ");
+    VALUES.strings.insert("all"," abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZАБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгеёжзийклмнопрстуфхцчшщъыьэюя1234567890~!@#$%^&*()_+,./;'\[]{}:""|<?>"+chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
+    VALUES.strings.insert("en_alpha_lcase","abcdefghijklmnopqrstuvwyz");
+    VALUES.strings.insert("en_ALPHA_UCASE","ABCDEFGHIJKLMNOPQRSTUVWYZ");
+    VALUES.strings.insert("ru_alpha_lcase","абвгеёжзийклмнопрстуфхцчшщъыьэюя");
+    VALUES.strings.insert("ru_ALPHA_UCASE","АБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ");
+    VALUES.strings.insert("digits","1234567890");
+    VALUES.strings.insert("digits2","-987654.0321");
+    VALUES.strings.insert("spec_chars","~!@#$%^&*()_+,./;'\[]{}:""|<?>");
+    VALUES.strings.insert("spec_chars2",chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
+    VALUES.strings.insert("date","06.06.1234 11:12:13");
+    VALUES.strings.insert("date2",string(currentdate()));
+    VALUES.strings.insert("uuid",string(new uuid()));
+    VALUES.strings.insert("quotes","'""'""'""'""'""'""'Quote hell'""'""'""'""'""'""'""'");
+    VALUES.strings.insert("moo","
+                              |   ^__^
                               |   (oo)\_______
                               |   (__)\       )\/\
                               |       ||----w |
                               |       ||     ||
                               |");
-    values.insert("dates",new Structure());
-    values.dates.insert("currentdate",currentdate());
-    values.dates.insert("thebegining",'00010101');
-    values.insert("arrays",new Structure());
-    arr=new Array();
-    for i=0 to 100 do
-        arr.add(?(i%2=0,i,-i)/2);
-    enddo;
-    values.arrays.insert("numeric",arr);
-    values.insert("fixedarrays",new Structure());
-    values.fixedarrays.insert("numeric",new FixedArray(values.arrays.numeric));
+    VALUES.insert("dates",new Structure());
+    VALUES.dates.insert("currentdate",currentdate());
+    VALUES.dates.insert("thebegining",date("00010101"));
+    VALUES.insert("arrays",new Structure());
+        arr=new Array();
+        for i=0 to 100 do
+            arr.add(?(i%2=0,i,-i)/2);
+        enddo;
+    VALUES.arrays.insert("numeric",arr);
+        arr=new Array();
+        arr.add(null);
+        arr.add(undefined);
+        arr.add(true);
+        arr.add(false);
+        arr.add(0);
+        arr.add(42);
+        arr.add(-3.14);
+        arr.add("");
+        arr.add("     ");
+        arr.add("Hello, world!");
+        arr.add(currentdate());
+        arr.add(date("00010101"));
+        arr.add(new Array());
+        arr.add(new Structure());
+        arr.add(new Map());
+    VALUES.arrays.insert("mixed",arr);
+    VALUES.insert("fixedarrays",new Structure());
+    VALUES.fixedarrays.insert("numeric",new FixedArray(VALUES.arrays.numeric));

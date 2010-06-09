@@ -15,14 +15,14 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function crc64__EmptyString() export
-    assert.is_equal(hashlib.crc64(values.strings.empty),"0000000000000000");
+    assert.is_equal(hashlib.crc64(""),"0000000000000000");
 endfunction
 
 function crc64__ANSI() export
     assert.is_equal(hashlib.crc64("IHATEMATH"),"E3DCADD69B01ADD1");
-    assert.is_equal(hashlib.crc64(values.strings.en_alpha_lcase),"F6F01048B5B60FB5");
+    assert.is_equal(hashlib.crc64("abcdefghijklmnopqrstuvwyz"),"F6F01048B5B60FB5");
 endfunction
 
 function crc64__Unicode() export
-    assert.is_equal(hashlib.crc64(values.strings.ru_alpha_lcase),"30A49A9C728D85A6");
+    assert.is_equal(hashlib.crc64("абвгеёжзийклмнопрстуфхцчшщъыьэюя"),"30A49A9C728D85A6");
 endfunction
