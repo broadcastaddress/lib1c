@@ -103,9 +103,9 @@ function dpa(s1,s2) export
                                   new Structure("s1,s2",s1,s2));
     endif;
     m=new Array();
-    l1=strlen(s1)-1;
+    l1=strlen(s1);
     l2=strlen(s2);
-    for i=0 to l1 do
+    for i=0 to l1+1 do
         m.add(new Array(l2));
     enddo;
     m[0][0]=0;    // boundary conditions
