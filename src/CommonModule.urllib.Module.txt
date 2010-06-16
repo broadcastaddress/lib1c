@@ -322,7 +322,7 @@ function join(base,url) export
     if string.startswith(jstr.path,"/") then
         return urllib.unsplit(jstr);
     endif;
-    if bstr.path<>undefined then
+    if bstr.path<>undefined and bstr.path<>"" then
         segments=array.merge(
                     string.split(bstr.path,"/"),
                     string.split(jstr.path,"/")
@@ -446,13 +446,21 @@ endfunction
 
 //unquote('abc%20def') -> 'abc def'
 function unquote(s) export
+    enс="";
     res=string.split(s,"%");
     l=res.ubound();
     for i=1 to l do
         item=res[i];
-        res[i]=char(convert.to_dec("0x"+mid(item,1,2)))+mid(item,3);
+        code=convert.to_dec("0x"+mid(item,1,2));
+        enс=enс+char(code);
+        if strlen(item)=2 then
+            res[i]="";
+        else
+            res[i]=string.utf8decode(enс)+mid(item,3);
+            enс="";
+        endif;
     enddo;
-    return string.utf8decode(string.join("",res));
+    return string.join("",res);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////

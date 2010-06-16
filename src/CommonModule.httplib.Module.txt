@@ -24,7 +24,34 @@ endfunction
 //      <string>
 //
 function HTTPError(status,msg,env=undefined) export
+    if status=404 then
+        return ResourceNotFound(msg,env);
+    elsif status=403 then
+        return Unauthorized(msg,env);
+    elsif status=401 then
+        return BadRequest(msg,env);
+    elsif status=409 then
+        return ResourceConflict(msg,env);
+    elsif status=412 then
+        return PreconditionFailed(msg,env);
+    elsif status=500 then
+        return ServerError(msg,env);
+    endif;
     return exception.BaseException("HTTPError["+string(status)+"]",msg,env);
+endfunction
+
+//function BadRequest(msg,env=undefined)
+//  Исключение для случаев, когда в ответ возвращается 400 код ошибки
+//
+//  Параметры:
+//      msg <string> -- сообщение исключения
+//      env <structure>,<map> -- переменные окружения
+//
+//  Возвращает:
+//      <string>
+//
+function BadRequest(msg,env=undefined) export
+    return exception.BaseException("BadRequest",msg,env);
 endfunction
 
 //function PreconditionFailed(msg,env=undefined)
@@ -71,20 +98,19 @@ function ResourceConflict(msg,env=undefined) export
     return exception.BaseException("ResourceConflict",msg,env);
 endfunction
 
-//function ServerError(msg,status,env=undefined)
+//function ServerError(msg,env=undefined)
 //  Исключение вызывается в случае непредвиденной ошибки сервера.
-//  Код HTTP-статуса >=500.
+//  Код HTTP-статуса 500.
 //
 //  Параметры:
-//      status <number> -- код состояния HTTP.
 //      msg <string> -- сообщение исключения
 //      env <structure>,<map> -- переменные окружения
 //
 //  Возвращает:
 //      <string>
 //
-function ServerError(status,msg,env=undefined) export
-    return exception.BaseException("ServerError["+string(status)+"]",msg,env);
+function ServerError(msg,env=undefined) export
+    return exception.BaseException("ServerError",msg,env);
 endfunction
 
 //function Unauthorized(msg,env=undefined)
