@@ -446,20 +446,23 @@ endfunction
 
 //unquote('abc%20def') -> 'abc def'
 function unquote(s) export
-    enс="";
+    enc="";
     res=string.split(s,"%");
     l=res.ubound();
     for i=1 to l do
         item=res[i];
         code=convert.to_dec("0x"+mid(item,1,2));
-        enс=enс+char(code);
+        enc=enc+char(code);
         if strlen(item)=2 then
             res[i]="";
         else
-            res[i]=string.utf8decode(enс)+mid(item,3);
-            enс="";
+            res[i]=string.utf8decode(enc)+mid(item,3);
+            enc="";
         endif;
     enddo;
+    if enc<>"" then
+        res[i-1]=string.utf8decode(enc);
+    endif;
     return string.join("",res);
 endfunction
 
