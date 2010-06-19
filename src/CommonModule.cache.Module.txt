@@ -7,6 +7,10 @@ function get(k) export
         return undefined;
     #else
         try
+            if cache_storage=undefined then
+                init();
+                return undefined;
+            endif;
             return cache_storage.get(k);
         except
             return undefined;
