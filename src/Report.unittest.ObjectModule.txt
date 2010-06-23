@@ -1,38 +1,102 @@
-﻿var RESULT export;
-var VALUES export;
+﻿//RESULT <structure>
+//  Результат выполнения теста.
+//  Содержит поля:
+//      PASSED <string> -- признак успешного выполнения теста
+//      FAILED <string> -- признак провального выполнения теста
+//      UNKNOWN <string> -- тест не выполнялся/результат неизвестен
+var RESULT export;
 
-function test_info()
+//BEHAVIOR <structure>
+//  Предопределенные поведения тестов.
+//  Содержит поля:
+//      FAIL <array> -- поведения абсолютного провала
+//      PASS <array> -- поведения абсолютного успеха
+var BEHAVIOR export;
+
+//function _split(val s,sep,count=0)
+//  Разбивает строку `s` по разделителю `sep` `count` число раз
+//
+//  Параметры:
+//          s <string> -- исходная строка
+//        sep <string> -- разделитель
+//      count <number> -- количество частей.
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Функция является реализацией канонического строкового метода split.
+//      Если `count`<=0, то будет выполнено максимально возможное количество
+//      делений строки `s`.
+//      Если `count`>0, то будет возвращем массив, состоящий 
+//      максимум из `count` элементов.
+//
+//  P.S. функция является копией string.split, дабы снять внешнюю зависимость
+//
+function _split(val s,sep,count=0)
+    if count<0 then
+        count=0;
+    endif;
+    stack=new Array();
+    seplen=strlen(sep);
+    while True do
+        bay=find(s,sep);
+        if bay=0 then
+            break;
+        endif;
+        stack.add(mid(s,1,bay-1));
+        s=mid(s,bay+seplen);
+        if count<>0 and stack.count()=count then
+            break;
+        endif;
+    enddo;
+    stack.add(s);
+    return stack;
+endfunction
+
+//function TestInfo(funcname)
+//  Формирует стуктуру на основе имени теста `funcname`
+//
+//  Параметры:
+//      funcname <string> -- имя функции теста
+//
+//  Возвращает:
+//      <structure:[
+//              name <string> -- имя тестируемой функции,
+//             descr <array>  -- описание теста,
+//          behavior <string> -- поведение теста,
+//            result <string> -- конечный результат
+//      ]>
+//
+function TestInfo(funcname)
     res=new Structure();
     res.insert("name","");
+    res.insert("descr",new Array());
     res.insert("behavior","");
-    res.insert("RESULT","");
-    return res;
-endfunction
-
-function split_test_name(s)
-    res=new Structure("name,descr,behavior","","","");
-    p=find(s,"__");
-    res.name=mid(s,1,p-1);
-    i=strlen(s);
-    while not(mid(s,i,1)="_" and mid(s,i-1,1)="_") and i<>0 do
-        i=i-1;
-    enddo;
-    if i<>0 then
-        descr=mid(s,p+2,i-p-3);
-        behavior=mid(s,i+1);
-        if descr=behavior then
-            behavior="";
-        endif;
-        res.descr=descr;
-        res.behavior=behavior;
+    res.insert("result","");
+    parts=_split(funcname,"__");
+    res.name=parts[0];
+    parts.delete(0);
+    if parts.count()<>0 then
+        res.descr.add(parts[0]);
+        parts.delete(0);
     endif;
+    if parts.count()<>0 then
+        res.behavior=parts[parts.ubound()];
+        parts.delete(parts.ubound());
+    endif;
+    for each item in parts do
+        res.descr.add(item);
+    enddo;
     return res;
 endfunction
 
-function set_up(form)
+function set_up(unit)
     try
-        res=form.set_up();
+        res=unit.set_up();
     except
+        // есть ли более удачный вариант проверить, что такой метод
+        // не существует?
         if find(errorinfo().description,"(set_up)")=0 then
             raise;
         endif;
@@ -40,161 +104,97 @@ function set_up(form)
     return res;
 endfunction
 
-function run_test(form,fname,args=undefined,val behavior)
-    behavior=lower(behavior);
+function exec(unit,fname,args,testinfo)
     try
-        execute("form."+fname+?(args=undefined,"()","(args)"));
+        execute("unit."+fname+?(args=undefined,"()","(args)"));
     except
         err=exception.catch(errorinfo());
-        if find(behavior,"fail")<>0 then
+        if BEHAVIOR.FAIL.find(lower(testinfo.behavior))<>undefined then
             return undefined;
         endif;
-        if find(behavior,"exception")<>0 or find(behavior,"error")<>0 then
-            assert(lower(err.type)=behavior,"Occured exception is not expected one",
-                                            new Structure("occured,expected",err.type,behavior));
-            return undefined;
+        if behavior="" then
+            raise exception.throw();
         endif;
-        raise exception.throw();
+        if lower(err.type)<>lower(testinfo.behavior) then
+            env=new Structure("occured,expected,traceback",
+                               err.type,testinfo.behavior,exception.throw());
+            msg="Occured exception is not expected one";
+            raise exception.BaseException("AssertError",msg,env);
+        endif;
+        return undefined;
     endtry;
-    if find(behavior,"fail")<>0 
-        or find(behavior,"exception")<>0 
-        or find(behavior,"error")<>0 then
-        assert(false,"Exception expected during this test",
-                     new Structure("fname,args,behavior",fname,args,behavior));
+    if BEHAVIOR.PASS.find(lower(testinfo.behavior))=undefined then
+        msg="Exception expected during this test";
+        env=new Structure("fname,args,behavior",fname,args,testinfo.behavior);
+        raise exception.BaseException("AssertError",msg,env);
     endif;
 endfunction
 
-function tear_down(form)
+function run_test(unit,funcname) export
+    exception.clear();
+    test=TestInfo(funcname);
     try
-        form.tear_down();
+        args=set_up(unit);
+        exec(unit,funcname,args,test);
+        tear_down(unit);
+        test.result=RESULT.PASSED;
     except
+        test.insert("error",errorinfo().Description);
+        test.result=RESULT.FAILED;
+    endtry;
+    return test;
+endfunction
+
+function tear_down(unit)
+    try
+        unit.tear_down();
+    except
+        // есть ли более удачный вариант проверить, что такой метод
+        // не существует?
         if find(errorinfo().description,"(tear_down)")=0 then
            raise;
         endif;
     endtry;
 endfunction
 
-function run() export
-    res=new array();
-    for each module in metadata.reports.unittest.forms do
-        current_test=test_info();
-        current_test.name=module.name;
-        current_test.insert("tests",new structure());
-        form=thisobject.getform(module.name);
+function units() export
+    units=new structure();
+    for each unit in metadata.reports.unittest.forms do
         try
-            suite=form.get_suite();
+            form=thisobject.getform(unit.name);
+            res=form.get_suite();
+            assert.is_array(res);
+            units.insert(unit.name,form);
         except
-            current_test.RESULT=RESULT.FAILED;
-            current_test.insert("error",errorinfo().Description);
             continue;
         endtry;
-        for each fname in suite do
-            exception.clear();
-            test=test_info();
-            funcinfo=split_test_name(fname);
-            test.name=funcinfo.name;
-            test.behavior=funcinfo.behavior;
-            try
-                args=set_up(form);
-                run_test(form,fname,args,funcinfo.behavior);
-                tear_down(form);
-                test.RESULT=RESULT.PASSED;
-            except
-                x=errorinfo();
-                test.insert("error",x.Description);
-                test.RESULT=RESULT.FAILED;
-            endtry;
-            if current_test.tests.property(funcinfo.name) then
-                test.name=funcinfo.descr;
-                if current_test.tests[funcinfo.name].property("tests") then
-                    current_test.tests[funcinfo.name].tests.add(test)
-                else
-                    prev_test=current_test.tests[funcinfo.name];
-                    current_test.tests[funcinfo.name]=test_info();
-                    current_test.tests[funcinfo.name].name=funcinfo.name;
-                    current_test.tests[funcinfo.name].insert("tests",new array());
-                    current_test.tests[funcinfo.name].tests.add(prev_test);
-                    current_test.tests[funcinfo.name].tests.add(test);
-                endif;
-            else
-                if funcinfo.descr="" then
-                    current_test.tests.insert(funcinfo.name,test);
-                else
-                    current_test.tests.insert(funcinfo.name,test_info());
-                    current_test.tests[funcinfo.name].name=funcinfo.name;
-                    current_test.tests[funcinfo.name].insert("tests",new array());
-                    test.name=funcinfo.descr;
-                    current_test.tests[funcinfo.name].tests.add(test);
-                endif;
-            endif;
-        enddo;
-        res.add(current_test);
+    enddo;
+    return units;
+endfunction
+
+function run_unit(unit) export
+    return run_suite(unit,unit.get_suite());
+endfunction
+
+function run_suite(unit,suite)
+    res=new array();
+    for each funcname in suite do
+        res.add(run_test(unit,funcname));
     enddo;
     return res;
 endfunction
 
-RESULT=new Structure("PASSED,FAILED,UNKNOWN","PASSED","FAILED","UNKNOWN");
 
-VALUES=new Structure();
-    VALUES.insert("null",null);
-    VALUES.insert("undefined",undefined);
-    VALUES.insert("booleans",new Structure);
-    VALUES.booleans.insert("true",true);
-    VALUES.booleans.insert("false",false);
-    VALUES.insert("numbers",new Structure);
-    VALUES.numbers.insert("zero",0);
-    VALUES.numbers.insert("integer",1234567890);
-    VALUES.numbers.insert("real",-987654.0321);
-    VALUES.numbers.insert("answer",42);
-    VALUES.numbers.insert("over9k",90000000000000000000000000.00000000000000000000000009);
-    VALUES.insert("strings",new Structure);
-    VALUES.strings.insert("empty","");
-    VALUES.strings.insert("spaced","          s"+chars.cr+"p"+chars.cr+"a"+chars.cr+"c"+chars.cr+"e"+chars.cr+"d           ");
-    VALUES.strings.insert("all"," abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZАБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгеёжзийклмнопрстуфхцчшщъыьэюя1234567890~!@#$%^&*()_+,./;'\[]{}:""|<?>"+chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
-    VALUES.strings.insert("en_alpha_lcase","abcdefghijklmnopqrstuvwyz");
-    VALUES.strings.insert("en_ALPHA_UCASE","ABCDEFGHIJKLMNOPQRSTUVWYZ");
-    VALUES.strings.insert("ru_alpha_lcase","абвгеёжзийклмнопрстуфхцчшщъыьэюя");
-    VALUES.strings.insert("ru_ALPHA_UCASE","АБВСГЕЁЗЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ");
-    VALUES.strings.insert("digits","1234567890");
-    VALUES.strings.insert("digits2","-987654.0321");
-    VALUES.strings.insert("spec_chars","~!@#$%^&*()_+,./;'\[]{}:""|<?>");
-    VALUES.strings.insert("spec_chars2",chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
-    VALUES.strings.insert("date","06.06.1234 11:12:13");
-    VALUES.strings.insert("date2",string(currentdate()));
-    VALUES.strings.insert("uuid",string(new uuid()));
-    VALUES.strings.insert("quotes","'""'""'""'""'""'""'Quote hell'""'""'""'""'""'""'""'");
-    VALUES.strings.insert("moo","
-                              |   ^__^
-                              |   (oo)\_______
-                              |   (__)\       )\/\
-                              |       ||----w |
-                              |       ||     ||
-                              |");
-    VALUES.insert("dates",new Structure());
-    VALUES.dates.insert("currentdate",currentdate());
-    VALUES.dates.insert("thebegining",date("00010101"));
-    VALUES.insert("arrays",new Structure());
-        arr=new Array();
-        for i=0 to 100 do
-            arr.add(?(i%2=0,i,-i)/2);
-        enddo;
-    VALUES.arrays.insert("numeric",arr);
-        arr=new Array();
-        arr.add(null);
-        arr.add(undefined);
-        arr.add(true);
-        arr.add(false);
-        arr.add(0);
-        arr.add(42);
-        arr.add(-3.14);
-        arr.add("");
-        arr.add("     ");
-        arr.add("Hello, world!");
-        arr.add(currentdate());
-        arr.add(date("00010101"));
-        arr.add(new Array());
-        arr.add(new Structure());
-        arr.add(new Map());
-    VALUES.arrays.insert("mixed",arr);
-    VALUES.insert("fixedarrays",new Structure());
-    VALUES.fixedarrays.insert("numeric",new FixedArray(VALUES.arrays.numeric));
+RESULT=new Structure("PASSED,FAILED,UNKNOWN","PASSED","FAILED","UNKNOWN");
+//
+BEHAVIOR=new Structure();
+BEHAVIOR.insert("FAIL",new Array());
+BEHAVIOR.FAIL.add("fail");
+BEHAVIOR.FAIL.add("failed");
+BEHAVIOR.FAIL.add("error");
+BEHAVIOR.insert("PASS",new Array());
+BEHAVIOR.PASS.add("");
+BEHAVIOR.PASS.add("ok");
+BEHAVIOR.PASS.add("pass");
+BEHAVIOR.PASS.add("passed");
+BEHAVIOR.PASS.add("success");

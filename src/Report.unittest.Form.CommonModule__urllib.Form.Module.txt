@@ -4,6 +4,11 @@ endfunction
 
 function get_suite() export
     suite=new Array();
+    suite.add("unquote__no_escaped_chars");
+    suite.add("unquote__escaped_char");
+    suite.add("unquote__percent");
+    suite.add("unquote__escaped_string");
+    //
     suite.add("split__parse_defaults");
     suite.add("split__parse_no_colon");
     suite.add("split__parse_just_colon");
@@ -49,7 +54,7 @@ function split__parse_defaults() export
     assert.is_equal(uri.password, undefined,"password must be undefined");
     assert.is_equal(uri.host, undefined,"host must be undefined");
     assert.is_equal(uri.port, undefined,"port must be undefined");
-    assert.is_equal(uri.path, undefined,"path must be undefined");
+    assert.is_equal(uri.path, new array(),"path must be empty array");
 endfunction
 
 function split__parse_no_colon() export
@@ -59,19 +64,22 @@ endfunction
 function split__parse_just_colon() export
     uri=urllib.split("scheme:");
     assert.is_equal(uri.scheme, "scheme");
-    assert.is_equal(uri.path, undefined);
+    assert.is_equal(uri.path, new array());
 endfunction
 
 function split__parse_just_relative_database() export
     uri=urllib.split("scheme:d%61ta/base");
     assert.is_equal(uri.scheme, "scheme");
-    assert.is_equal(uri.path, "data/base");
+    assert.is_equal(uri.path[0], "data");
+    assert.is_equal(uri.path[1], "base");
 endfunction
 
 function split__parse_just_absolute_database() export
     uri=urllib.split("scheme:/d%61ta/base");
     assert.is_equal(uri.scheme, "scheme");
-    assert.is_equal(uri.path, "/data/base");
+    assert.is_equal(uri.path[0], "");
+    assert.is_equal(uri.path[1], "data");
+    assert.is_equal(uri.path[2], "base");
 endfunction
 
 function split__parse_host() export
@@ -135,7 +143,7 @@ function split__parse_username_password_host_port_database() export
     assert.is_equal(uri.password, "password");
     assert.is_equal(uri.host, "host");
     assert.is_equal(uri.port, 1234);
-    assert.is_equal(uri.path, "database");
+    assert.is_equal(uri.path[0], "database");
 endfunction
 
 function split__parse_username_password_database() export
@@ -145,14 +153,14 @@ function split__parse_username_password_database() export
     assert.is_equal(uri.password, "password");
     assert.is_equal(uri.host, undefined);
     assert.is_equal(uri.port, undefined);
-    assert.is_equal(uri.path, "database");
+    assert.is_equal(uri.path[0], "database");
 endfunction
 
 function split__parse_params() export
     uri=urllib.split("scheme:?a%62c=d%65f&ghi=jkl");
     assert.is_equal(uri.scheme, "scheme");
     assert.is_equal(uri.host, undefined);
-    assert.is_equal(uri.path, undefined);
+    assert.is_equal(uri.path, new array());
     assert.is_equal(uri.query["abc"],"def");
     assert.is_equal(uri.query["ghi"],"jkl");
 endfunction
@@ -161,7 +169,7 @@ function split__parse_host_params() export
     uri=urllib.split("scheme://ho%73t?a%62c=d%65f&ghi=jkl");
     assert.is_equal(uri.scheme, "scheme");
     assert.is_equal(uri.host, "host");
-    assert.is_equal(uri.path, undefined);
+    assert.is_equal(uri.path, new array());
     assert.is_equal(uri.query["abc"],"def");
     assert.is_equal(uri.query["ghi"],"jkl");
 endfunction
@@ -170,7 +178,7 @@ function split__parse_host_path_params() export
     uri=urllib.split("scheme://ho%73t/d%61tabase?a%62c=d%65f&ghi=jkl&&debug");
     assert.is_equal(uri.scheme, "scheme");
     assert.is_equal(uri.host, "host");
-    assert.is_equal(uri.path, "database");
+    assert.is_equal(uri.path[0], "database");
     assert.is_equal(uri.query["abc"],"def");
     assert.is_equal(uri.query["ghi"],"jkl");
     assert.is_equal(uri.query["debug"],"");
@@ -213,3 +221,29 @@ function split__str_option_only() export
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
+
+function unquote(str,expect)
+    assert.is_equal(expect,urllib.unquote(str));
+endfunction
+
+function unquote__no_escaped_chars() export
+    unquote("abc абс 123 №;:?","abc абс 123 №;:?");
+endfunction
+
+function unquote__escaped_char() export
+    unquote("%20"," ");
+endfunction
+
+function unquote__percent() export
+    unquote("%","%");
+endfunction
+
+function unquote__escaped_string() export
+    unquote("test%20%D0%BF%D1%80%D0%BE%D0%B9%D0%B4%D0%B5%D0%BD%20%D1%B1%D1%AC%D1%AE%D1%A8%D1%B2","test пройден ѱѬѮѨѲ");
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function join__schema() export
+    assert.is_equal(urllib.join("http://host:port/res","file.ext?key=value"));
+endfunction

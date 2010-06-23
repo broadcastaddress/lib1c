@@ -1,0 +1,109 @@
+﻿function set_up() export
+    try
+        objects=new structure();
+        objects.insert("constant",constants.TestConstant);
+        objects.insert("enum",enums.TestEnum.Item2);
+        res=catalogs.TestCatalog.Select();
+        res.next();
+        objects.insert("catalog",res.ref.getobject());
+        objects.insert("document",documents.TestDocument);
+        objects.insert("informationRegister",InformationRegisters.mimetypes);
+        res=tasks.ToDoList.Select();
+        res.next();
+        objects.insert("task",res.ref.getobject());
+        return objects;
+    except
+        assert("Set up our own metadata object in metautils test form");
+    endtry;
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    suite.add("guess_type__Constant");
+    suite.add("guess_type__Enum");
+    suite.add("guess_type__Catalog");
+    suite.add("guess_type__Document");
+    suite.add("guess_type__Task");
+    //suite.add("guess_type__InformationRegisters");
+    return suite;
+endfunction
+
+function tear_down() export
+    
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function guess_type__Constant(objects) export
+    assert.is_equal(metautils.guess_type(objects.constant),Constants);
+endfunction
+
+function guess_type__Enum(objects) export
+    assert.is_equal(metautils.guess_type(objects.enum),Enums);
+endfunction
+
+function guess_type__Catalog(objects) export
+    assert.is_equal(metautils.guess_type(objects.catalog),Catalogs);
+endfunction
+
+function guess_type__Document(objects) export
+    assert.is_equal(metautils.guess_type(objects.document),Documents);
+endfunction
+
+function guess_type__ChartOfCharacteristicTypes(objects) export
+    assert.is_equal(metautils.guess_type(objects.chartOfCharacteristicTypes),ChartsOfCharacteristicTypes);
+endfunction
+
+function guess_type__InformationRegisters(objects) export
+    assert.is_equal(metautils.guess_type(objects.informationRegister),InformationRegisters);
+endfunction
+
+function guess_type__Task(objects) export
+    assert.is_equal(metautils.guess_type(objects.task),Tasks);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function gen_uuid__Constant(objects) export
+    uuid=metautils.get_uuid(objects.constant);
+    assert.regex_match(uuid,"/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i");
+    assert.is_equal(ValueFromStringInternal("{""#"","+uuid+",{0}}"),objects.constant);
+endfunction
+
+function gen_uuid__Enum(objects) export
+    uuid=metautils.get_uuid(objects.enum);
+    assert.regex_match(uuid,"/^\d+:[a-f0-9]{32}$/i");
+    type_uuid=re.search(
+                ValueToStringInternal(typeof(objects.enum)),
+                "/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i"
+            ).group[0];
+    assert.is_equal(ValueFromStringInternal("{""#"","+type_uuid+","+uuid+"}"),objects.enum);
+endfunction
+
+function gen_uuid__Catalog(objects) export
+    uuid=metautils.get_uuid(objects.catalog);
+    assert.regex_match(uuid,"/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i");
+    assert.is_equal(xmlvalue(typeof(objects.catalog.ref),uuid),objects.catalog);
+endfunction
+
+function gen_uuid__Document(objects) export
+    uuid=metautils.get_uuid(objects.document);
+    assert.regex_match(uuid,"/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i");
+    assert.is_equal(xmlvalue(typeof(objects.document.ref),uuid),objects.document);
+endfunction
+
+function gen_uuid__ChartOfCharacteristicTypes(objects) export
+    uuid=metautils.get_uuid(objects.chartOfCharacteristicTypes);
+    assert.regex_match(uuid,"/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i");
+    assert.is_equal(xmlvalue(typeof(objects.chartOfCharacteristicTypes),uuid),objects.chartOfCharacteristicTypes);
+endfunction
+
+function gen_uuid__InformationRegisters(objects) export
+    assert.is_equal(metautils.gen_uuid(objects.informationRegister),InformationRegisters);
+endfunction
+
+function gen_uuid__Task(objects) export
+    uuid=metautils.get_uuid(objects.task);
+    assert.regex_match(uuid,"/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i");
+    assert.is_equal(xmlvalue(typeof(objects.task.ref),uuid),objects.task);
+endfunction

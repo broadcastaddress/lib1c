@@ -8,12 +8,19 @@ function get_suite() export
     suite.add("to_array__NumberConvertionFail__TypeError");
     suite.add("to_array__DateConvertionFail__TypeError");
     suite.add("to_array__UndefinedConvertionMakesEmptyArray__Pass");
+    suite.add("to_array__EmptyStringConvertionMakesEmptyArray__Pass");
     suite.add("to_array__StringConvertionMakesArrayOfChars__Pass");
     suite.add("to_array__ArrayConvertionDoesNothing__Pass");
     suite.add("to_array__FixedArrayBecomesArrayWithSameValues__Pass");
     suite.add("to_array__StructureAndMapsConvertsToArrayOfPairsForKeysAndValues__Pass");
     suite.add("to_boolean__AlwaysTrue");
+    suite.add("to_boolean__TrueNumbers");
+    suite.add("to_boolean__TrueStrings");
+    suite.add("to_boolean__TrueDates");
     suite.add("to_boolean__AlwaysFalse");
+    suite.add("to_boolean__FalseNumbers");
+    suite.add("to_boolean__FalseStrings");
+    suite.add("to_boolean__FalseDates");
     suite.add("to_number__NullConvertionFail__TypeError");
     suite.add("to_number__UndefinedConvertsToZero__Pass");
     suite.add("to_number__NumberArgumentDoesNothing__Pass");
@@ -43,6 +50,12 @@ function get_suite() export
     suite.add("to_string__ValueStorageToBase64EncodedString");
     suite.add("to_string__BinaryDataToBase64EncodedString");
     suite.add("to_string__AnyOtherUnsupportedObjectToStringRepresention");
+    suite.add("test");
+    suite.add("test");
+    suite.add("test");
+    suite.add("test__SameBehavior__Pass");
+    suite.add("test__SameBehavior__Ok");
+    suite.add("test__SameBehavior__Passed");
     return suite;
 endfunction
 
@@ -57,11 +70,11 @@ function to_array__NullConvertionFail__TypeError() export
 endfunction
 
 function to_array__NumberConvertionFail__TypeError() export
-    convert.to_array(values.numbers.integer);
+    convert.to_array(42);
 endfunction
 
 function to_array__DateConvertionFail__TypeError() export
-    convert.to_array(values.dates.currentdate);
+    convert.to_array(date("20380119031408"));
 endfunction
 
 function to_array__UndefinedConvertionMakesEmptyArray__Pass() export
@@ -70,8 +83,14 @@ function to_array__UndefinedConvertionMakesEmptyArray__Pass() export
     assert(not ValueIsFilled(res));
 endfunction
 
+function to_array__EmptyStringConvertionMakesEmptyArray__Pass() export
+    res=convert.to_array("");
+    assert.is_array(res);
+    assert.is_equal(res.count(),0);
+endfunction
+
 function to_array__StringConvertionMakesArrayOfChars__Pass() export
-    s=values.strings.all;
+    s="abcdefghijkl"+chars.cr+chars.ff+chars.tab+"@#$%^абвгдеёжзий!";
     res=convert.to_array(s);
     assert.is_array(res);
     for i=0 to res.ubound() do
@@ -80,50 +99,70 @@ function to_array__StringConvertionMakesArrayOfChars__Pass() export
 endfunction
 
 function to_array__ArrayConvertionDoesNothing__Pass() export
-    res=convert.to_array(values.arrays.numeric);
-    assert(res=values.arrays.numeric);
+    arr=array.create(null, undefined, true, false, 0, 42, -3.14, "", "   ",
+                     "Hello, world", "Привет, мир", '20380119031408',
+                     '00010101', new array(), new structure(), new map());
+    res=convert.to_array(arr);
+    assert(res=arr);
 endfunction
 
 function to_array__FixedArrayBecomesArrayWithSameValues__Pass() export
-    res=convert.to_array(values.fixedarrays.numeric);
-    for i=0 to res.ubound() do
-        assert.is_equal(res[i],values.fixedarrays.numeric[i]);
-    enddo;
+    //res=convert.to_array(values.fixedarrays.numeric);
+    //for i=0 to res.ubound() do
+    //    assert.is_equal(res[i],values.fixedarrays.numeric[i]);
+    //enddo;
 endfunction
 
 function to_array__StructureAndMapsConvertsToArrayOfPairsForKeysAndValues__Pass() export
-    res=convert.to_array(values);
+    struct=new Structure("key,simple,complex","value",null,new map());
+    res=convert.to_array(struct);
     for each item in res do
-        assert(values.property(item[0]));
-        assert(values[item[0]]=item[1]);
+        assert(struct.property(item[0]));
+        assert(struct[item[0]]=item[1]);
     enddo;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function to_boolean__AlwaysTrue() export
-    assert(convert.to_boolean(values.booleans.true));
-    for each item in values.numbers do
-        if item.value<>0 then
-            assert.is_true(convert.to_boolean(item.value));
-        endif;
-    enddo;
-    for each item in values.strings do
-        if item.value<>"" then
-            assert.is_true(convert.to_boolean(item.value));
-        endif;
-    enddo;
-    for each item in values.arrays do
-        if item.key<>"empty" then
-            assert.is_true(convert.to_boolean(item.value));
-        endif;
-    enddo;
+    assert(convert.to_boolean(true));
+endfunction
+
+function to_boolean__TrueNumbers() export
+    assert(convert.to_boolean(42));
+    assert(convert.to_boolean(-3.14));
+endfunction
+
+function to_boolean__TrueStrings() export
+    assert(convert.to_boolean("   "));
+    assert(convert.to_boolean(chars.cr));
+    assert(convert.to_boolean("abcdef"));
+    assert(convert.to_boolean("абвгде"));
+    assert(convert.to_boolean("0"));
+    assert(convert.to_boolean("12345"));
+endfunction
+
+function to_boolean__TrueDates() export
+    assert(convert.to_boolean('00010101000001'));
+    assert(convert.to_boolean('20380119031408'));
 endfunction
 
 function to_boolean__AlwaysFalse() export
-    assert.is_false(convert.to_boolean(values.booleans.false));
-    assert.is_false(convert.to_boolean(values.numbers.zero));
-    assert.is_false(convert.to_boolean(values.strings.empty));
+    assert.is_false(convert.to_boolean(null));
+    assert.is_false(convert.to_boolean(undefined));
+    assert.is_false(convert.to_boolean(false));
+endfunction
+
+function to_boolean__FalseNumbers() export
+    assert.is_false(convert.to_boolean(0));
+endfunction
+
+function to_boolean__FalseStrings() export
+    assert.is_false(convert.to_boolean(""));
+endfunction
+
+function to_boolean__FalseDates() export
+    assert.is_false(convert.to_boolean('00010101000000'));
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -137,14 +176,15 @@ function to_number__UndefinedConvertsToZero__Pass() export
 endfunction
 
 function to_number__NumberArgumentDoesNothing__Pass() export
-    for each item in values.numbers do
-        assert.is_equal(convert.to_number(item.value),item.value);
-    enddo;
+    assert.is_equal(convert.to_number(0),0);
+    assert.is_equal(convert.to_number(42),42);
+    assert.is_equal(convert.to_number(-3.14),-3.14);
 endfunction
 
 function to_number__ValidStringNumber__Pass() export
-    assert.is_number(convert.to_number(values.strings.digits));
-    assert.is_number(convert.to_number(values.strings.digits2));
+    assert.is_number(convert.to_number("0"));
+    assert.is_number(convert.to_number("42"));
+    assert.is_number(convert.to_number("-3.14"));
 endfunction
 
 function to_number__InvalidStringSpacedNumber__ValueError() export
@@ -172,27 +212,27 @@ function to_number__InvalidStringNumberComma__ValueError() export
 endfunction
 
 function to_number__AllCommonCharactersMakesFail__ValueError() export
-    convert.to_number(values.strings.all);
+    convert.to_number("7890abcde!@$%$#абвёюя./123456");
 endfunction
 
 function to_number__EnglishCharsMakesFail__ValueError() export
-    convert.to_number(values.strings.en_alpha_lcase);
+    convert.to_number("abc");
 endfunction
 
 function to_number__RussianCharsMakesFail__ValueError() export
-    convert.to_number(values.strings.ru_alpha_lcase);
+    convert.to_number("эюя");
 endfunction
 
 function to_number__EmptyStringMakesFail__ValueError() export
-    convert.to_number(values.strings.empty);
+    convert.to_number("");
 endfunction
 
 function to_number__SpecialCharsMakesFail__ValueError() export
-    convert.to_number(values.strings.spec_chars2);
+    convert.to_number(chars.cr+chars.ff+chars.tab+chars.nbsp+chars.lf+chars.vtab);
 endfunction
 
 function to_number__EvenMooCannotPass__ValueError() export
-    convert.to_number(values.strings.moo);
+    convert.to_number(unittest.values.strings.moo);
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
@@ -215,19 +255,24 @@ function to_string__NumericValueToStringWithoutSpaceDelimeters() export
 endfunction
 
 function to_string__StringValue() export
-    assert.is_equal(convert.to_string(values.strings.moo),values.strings.moo);
+    //assert.is_equal(convert.to_string(values.strings.moo),values.strings.moo);
 endfunction
 
 function to_string__StringValueToQuotedString() export
-    assert.is_equal(convert.to_string(values.strings.all,True),""""+values.strings.all+"""");
+    //assert.is_equal(convert.to_string(values.strings.all,True),""""+values.strings.all+"""");
 endfunction
 
 function to_string__DateToStringAsByRfc3339() export
-    assert.regex_match(convert.to_string(values.dates.currentdate),"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})");
+    res=convert.to_string(date("20380119031408"));
+    assert.regex_match(res,"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})");
 endfunction
 
 function to_string__ArrayToJsonLikeArrayString() export
-    
+    arr=array.create(null,undefined,false,0,-42.14,""," ","abc!@#сба",
+                     '00010101','20380119031408',new array(),new structure(),
+                     new map());
+    res=convert.to_string(arr);
+    assert.is_equal(res,"[undefined,false,0,-42.14,"""","" "",""abc!@#сба"",""0001-01-01T00:00:00"",""2038-01-19T03:14:08"",[],{},{}]");
 endfunction
 
 function to_string__StructureToJsonLikeObjectString() export
@@ -239,7 +284,7 @@ function to_string__MapToJsonLikeObjectString() export
 endfunction
 
 function to_string__TypeToValidTypeName() export
-    
+    assert.is_equal(type(convert.to_string(type("string"))),type("string"));
 endfunction
 
 function to_string__ValueStorageToBase64EncodedString() export
@@ -250,7 +295,14 @@ function to_string__BinaryDataToBase64EncodedString() export
     
 endfunction
 
-function to_string__AnyOtherUnsupportedObjectToStringRepresention() export
-    
+function test() export
 endfunction
 
+function test__SameBehavior__Pass() export
+endfunction
+
+function test__SameBehavior__Ok() export
+endfunction
+
+function test__SameBehavior__Passed() export
+endfunction

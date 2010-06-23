@@ -1,15 +1,22 @@
-﻿var _arr;
-var _arr2;
+﻿var TEST_ARRAY;
 
 function set_up() export
-    _arr=new Array();
-    for i=0 to 9 do
-        _arr.add(i);
-    enddo;
-    _arr2=new Array();
-    for each item in _arr do
-        _arr2.add(item);
-    enddo;
+    TEST_ARRAY=new Array();
+    TEST_ARRAY.add(null);
+    TEST_ARRAY.add(undefined);
+    TEST_ARRAY.add(true);
+    TEST_ARRAY.add(false);
+    TEST_ARRAY.add(0);
+    TEST_ARRAY.add(42);
+    TEST_ARRAY.add(-3.14);
+    TEST_ARRAY.add("");
+    TEST_ARRAY.add("     ");
+    TEST_ARRAY.add("Hello, world!");
+    TEST_ARRAY.add(currentdate());
+    TEST_ARRAY.add(date("00010101"));
+    TEST_ARRAY.add(new Array());
+    TEST_ARRAY.add(new Structure());
+    TEST_ARRAY.add(new Map());
 endfunction
 
 function get_suite() export
@@ -25,7 +32,7 @@ function get_suite() export
     suite.add("frozenset");
     suite.add("len");
     suite.add("merge");
-    suite.add("pop__NoArgumentsToPopLastItem");
+    suite.add("pop__NoArgumentsToPopLastItem__Pass");
     suite.add("pop__PositiveStartPosition");
     suite.add("pop__FromPositiveStartPositionTillEnd");
     suite.add("pop__FromPositiveStartPositionTillEndOnceMore");
@@ -35,20 +42,21 @@ function get_suite() export
 endfunction
 
 function tear_down() export
-    _arr=undefined;
-    _arr2=undefined;
+    TEST_ARRAY=undefined;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function create__WithOutArguments__Pass() export
     arr=array.create();
+    
     assert.is_array(arr);
     assert.is_equal(arr.count(),0);
 endfunction
 
 function create__WithSeveralArguments__Pass() export
     arr=array.create(1,"abc",'20100412010101',undefined);
+    
     assert.is_array(arr);
     assert.is_equal(arr.count(),4);
     assert.is_equal(arr[0],1);
@@ -58,7 +66,9 @@ function create__WithSeveralArguments__Pass() export
 endfunction
 
 function create__WithSeveralArgumentsNullMixed__Pass() export
-    arr=array.create(1,"abc",null,'20100412010101',null,undefined,null,null,null,undefined);
+    arr=array.create(1,"abc",null,'20100412010101',null,undefined,
+                     null,null,null,undefined);
+                     
     assert.is_array(arr);
     assert.is_equal(arr.count(),5);
     assert.is_equal(arr[0],1);
@@ -70,8 +80,10 @@ endfunction
 
 function create__WithAll26Arguments__Pass() export
     arr=array.create(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+    
     assert.is_array(arr);
     assert.is_equal(arr.count(),26);
+    
     for i=0 to 25 do
         assert.is_equal(arr[i],0);
     enddo;
@@ -80,28 +92,23 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function copy() export
-    arr=array.copy(_arr);
-    l=arr.ubound();
-    assert(arr<>_arr);
-    for i=0 to l do
-        assert.is_equal(arr[i],_arr[i]);
+    arr=array.copy(TEST_ARRAY);
+    arr_len=arr.ubound();
+    
+    assert(arr<>TEST_ARRAY);
+    for i=0 to arr_len do
+        assert.is_equal(arr[i],TEST_ARRAY[i]);
     enddo;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function count() export
-    x=new Array();
-    x.add(0);
-    x.add("ab");
-    x.add(0);
-    x.add("abc");
-    x.add("ab");
-    x.add(0);
+    x=array.create(0,"ab",0,"abc",0);
     res=array.count(x,0);
     assert.is_number(res);
     assert.is_equal(res,3);
-    assert.is_equal(array.count(x,"ab"),2);
+    assert.is_equal(array.count(x,"ab"),1);
     assert.is_equal(array.count(x,"abc"),1);
     assert.is_equal(array.count(x,null),0);
 endfunction
@@ -109,21 +116,21 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function freeze() export
-    farr=array.freeze(_arr);
+    farr=array.freeze(TEST_ARRAY);
     assert.is_fixedarray(farr);
-    for i=0 to _arr.ubound() do
-        assert.is_equal(_arr[i],farr[i]);
+    for i=0 to TEST_ARRAY.ubound() do
+        assert.is_equal(TEST_ARRAY[i],farr[i]);
     enddo;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function frozenset() export
-    farr=array.frozenset(_arr);
+    farr=array.frozenset(TEST_ARRAY);
     assert.is_fixedarray(farr);
-    assert(_arr.ubound()=farr.ubound());
-    for i=0 to _arr.ubound() do
-        assert.is_equal(_arr[i],farr[i]);
+    assert(TEST_ARRAY.ubound()=farr.ubound());
+    for i=0 to TEST_ARRAY.ubound() do
+        assert.is_equal(TEST_ARRAY[i],farr[i]);
     enddo;
     x=new Array();
     for i=0 to 5 do
@@ -142,106 +149,54 @@ endfunction
 /////////////////////////////////////////////////////////////////////////////
 
 function len() export
-    assert.is_equal(_arr.count(),array.len(_arr));
+    assert.is_equal(array.len(TEST_ARRAY),TEST_ARRAY.count());
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function merge() export
     arr=new Array();
-    arr.add(1);
-    arr.add(2);
-    arr.add(3);
-    arr.add(4);
-    arr.add(5);
-    res=array.merge(arr,_arr);
+    for i=0 to 5 do
+        arr.add(i);
+    enddo;
+    res=array.merge(arr,TEST_ARRAY);
+    
     assert(res<>arr);
-    assert(res<>_arr);
-    assert(res.count()=_arr.count()+arr.count());
-    l1=arr.ubound();
-    l2=_arr.ubound();
-    for i=0 to l1 do
+    assert(res<>TEST_ARRAY);
+    assert(res.count()=TEST_ARRAY.count()+arr.count());
+    
+    arr_len=arr.ubound();
+    testarr_len=TEST_ARRAY.ubound();
+    for i=0 to arr_len do
         assert(res[i]=arr[i]);
     enddo;
     j=i;
-    for i=i to l2 do
-        assert(res[i]=_arr[i-j]);
+    for i=i to testarr_len do
+        assert(res[i]=TEST_ARRAY[i-j]);
     enddo;
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
 function pop__NoArgumentsToPopLastItem() export
-    res=array.pop(_arr);
-    assert(res=_arr2[_arr2.ubound()]);
-    assert(_arr.count()=_arr2.count()-1);
-    for i=0 to _arr.ubound() do
-        assert(_arr[i]=_arr2[i]);
-    enddo;
 endfunction
 
 function pop__PositiveStartPosition() export
-    res=array.pop(_arr,3);
-    assert(res=_arr2[3]);
-    assert(_arr.count()=_arr2.count()-1);
-    res=array.pop(_arr,5);
-    assert(res=_arr2[6]);
-    assert(_arr.count()=_arr2.count()-2);
-    res=array.pop(_arr,1);
-    assert(res=_arr2[1]);
-    assert(_arr.count()=_arr2.count()-3);
+
 endfunction
 
 function pop__FromPositiveStartPositionTillEnd() export
-    p=2;
-    res=array.pop(_arr,p,null);
-    assert.is_equal(_arr.count(),p);
-    assert.is_equal(res.count(),_arr2.count()-_arr.count());
-    for i=0 to res.ubound() do
-        assert.is_equal(res[i],_arr2[i+p]);
-    enddo;
-    for i=0 to _arr.ubound() do
-        assert.is_equal(_arr[i],_arr2[i]);
-    enddo;
+
 endfunction
 
 function pop__FromPositiveStartPositionTillEndOnceMore() export
-    p=8;
-    res=array.pop(_arr,p,null);
-    assert.is_equal(_arr.count(),p);
-    assert.is_equal(res.count(),_arr2.count()-_arr.count());
-    for i=0 to res.ubound() do
-        assert.is_equal(res[i],_arr2[i+p]);
-    enddo;
-    for i=0 to _arr.ubound() do
-        assert.is_equal(_arr[i],_arr2[i]);
-    enddo;
+
 endfunction
 
 function pop__NegativeStartPosition() export
-    p=-1;
-    res=array.pop(_arr,p);
-    assert(res=_arr2.count()+p);
-    assert(_arr.count()=_arr2.count()-1);
-    p=-4;
-    res=array.pop(_arr,p);
-    assert(res=_arr2.count()+p-1);
-    assert(_arr.count()=_arr2.count()-2);
-    p=-8;
-    res=array.pop(_arr,p);
-    assert(res=_arr2.count()+p-2);
-    assert(_arr.count()=_arr2.count()-3);
+
 endfunction
 
 function pop__FromNegativeStartPositionTillEnd() export
-    p=-4;
-    res=array.pop(_arr,p,null);
-    assert.is_equal(res.count(),-p);
-    assert.is_equal(res.count(),_arr2.count()-_arr.count());
-    for i=0 to res.ubound() do
-        assert.is_equal(res[i],_arr2[_arr2.count()+p+i]);
-    enddo;
-    for i=0 to _arr.ubound() do
-        assert.is_equal(_arr[i],_arr2[i]);
-    enddo;
+
 endfunction

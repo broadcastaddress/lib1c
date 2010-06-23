@@ -1,0 +1,16 @@
+﻿
+function set_up() export
+
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    return suite;
+endfunction
+
+function tear_down() export
+
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+

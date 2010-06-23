@@ -1,59 +1,932 @@
-﻿/////////////////////////////////////////////////////////////////////////////
-// DISCLAMER:
-// This is adapted port of `couchdb-python` project
-// http://code.google.com/p/couchdb-python/
-// Author: Christopher Lenz
-//
-// Some functionality was changed.
+﻿var _server_url;
+var _database_url;
+var _document_url;
+var _dbname;
+var _docid;
+var VERSION;
+
+/////////////////////////////////////////////////////////////////////////////
+// Service methods
 /////////////////////////////////////////////////////////////////////////////
 
-// версия обработки
-var VERSION export;
+function delete_raw(url,params=undefined,headers=undefined)
+    return request_raw("DELETE",url,undefined,params,headers);
+endfunction
 
-//function Document(data=udefined,schema=undefined)
-//  Инициализирует документ 
+/////////////////////////////////////////////////////////////////////////////
+
+function get_raw(url,params=undefined,headers=undefined)
+    return request_raw("GET",url,undefined,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function head_raw(url,params=undefined,headers=undefined)
+    return request_raw("HEAD",url,undefined,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function post_raw(url,body=undefined,params=undefined,headers=undefined)
+    return request_raw("POST",url,body,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put_raw(url,body=undefined,params=undefined,headers=undefined)
+    return request_raw("PUT",url,body,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function delete(url,params=undefined,headers=undefined)
+    return request("DELETE",url,undefined,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function get(url,params=undefined,headers=undefined)
+    return request("GET",url,undefined,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function head(url,params=undefined,headers=undefined)
+    return request("HEAD",url,undefined,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function post(url,body=undefined,params=undefined,headers=undefined)
+    return request("POST",url,body,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put(url,body=undefined,params=undefined,headers=undefined)
+    return request("PUT",url,body,params,headers);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function delete_json(url,params=undefined,headers=undefined)
+    resp=delete(url,params,headers);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function get_json(url,params=undefined,headers=undefined)
+    resp=get(url,params,headers);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function post_json(url,body=undefined,params=undefined,headers=undefined)
+    resp=post(url,body,params,headers);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function put_json(url,body=undefined,params=undefined,headers=undefined)
+    resp=put(url,body,params,headers);
+    if resp.headers.get("Content-Type")="application/json" then
+        resp.data=json.decode(resp.data);
+    endif;
+    return resp;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function request(method,url,body=undefined,params=undefined,headers=undefined)
+//
+function request(method,url,body=undefined,params=undefined,headers=undefined) export
+    res=request_raw(method,url,body,params,headers);
+
+    if res.status>=400 then
+        msg=res.responseText;
+        env=new structure("method,url,body,params,headers,res",
+                           method,url,body,params,headers,res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function request_raw(method,url,body=undefined,params=undefined,headers=undefined)
+    req=httplib.Request(method,url);
+
+    if headers<>undefined then
+        if not check.is_map(headers) then
+            raise exception.TypeError(
+                "Invalid type of 4th argument (headers), <map> type expected",
+                new Structure("method,url,body,params,headers",
+                               method,url,body,params,headers)
+            );
+        endif;
+        for each item in headers do
+            req.headers.insert(item.key,item.value);
+        enddo;
+    endif;
+
+    req.headers.insert("Accept","application/json");
+    req.headers.insert("User-Agent","CouchDB-1C/"+VERSION);
+
+    if body<>undefined then
+        if not check.is_string(body) then
+            req.body=json.encode(body);
+            req.headers.insert("Content-Type","application/json");
+        else
+            req.body=body;
+            len=convert.to_string(strlen(body)); //fix for spaces
+            req.headers.insert("Content-Length",len);
+        endif;
+    endif;
+
+    if params<>undefined then
+        for each item in params do
+            req.url.query.insert(item.key,item.value);
+        enddo;
+    endif;
+    
+    return httplib.send(req);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function validate_dbname(dbname)
+    if not re.test(dbname,"^[a-z][a-z0-9_$()+-/]*$") then
+        raise exception.ValueError("Invalid database name");
+    endif;
+    return dbname;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function resource(baseaddr,other=undefined)
+    if other<>undefined then
+        return urllib.join(baseaddr,other);
+    endif;
+    return baseaddr;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function server_resource(path=undefined) export
+    if _server_url=undefined then
+        raise exception.ValueError("Server has not been setter");
+    endif;
+    return resource(_server_url,path);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function database_resource(path=undefined) export
+    if _database_url=undefined then
+        raise exception.ValueError("Database has not been setter");
+    endif;
+    return resource(_database_url,path);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function document_resource(path=undefined) export
+    if _document_url=undefined then
+        raise exception.ValueError("Document has not been setter");
+    endif;
+    return resource(_document_url,path);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Server methods
+/////////////////////////////////////////////////////////////////////////////
+
+//function server(url=undefined)
+//  Привязывает обработку к серверу couchdb.
 //
 //  Параметры:
-//        data <structure>, <map> -- начальные данные документа
-//      schema <structure>, <map> -- схема докумета
+//      url <string> - URL адрес сервера
 //
 //  Возвращает:
-//      <CouchDB.Forms.IDocument>
+//      <string> -- адрес сервера, с которой связаны обработка
+//      <undefined> -- если обработка не связана с сервером
 //
 //  Описание:
-//      
-function Document(data=undefined,schema=undefined) export
-    return thisobject.getForm("IDocument")
-                     .init(thisobject.getForm("Document"),data,schema);
+//      Чтобы отвязать обработку от сервера, необходимо вызвать
+//      этот метод с параметром Null
+//
+function server(url=undefined) export
+    if url=undefined then
+        return _server_url;
+    elsif url=null then
+        _server_url=undefined;
+    else
+        _server_url=url;
+    endif;
+    return _server_url;
 endfunction
 
-function MetadataDocument(data=undefined,schema=undefined) export
-    return thisobject.getForm("IDocument")
-                     .init(thisobject.getForm("MetadataDocument"),data,schema);
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_exists()
+//  Проверяет доступность сервера
+//
+//  Возвращает:
+//      <boolean>
+//
+function server_exists() export
+    try
+        res=head_raw(server_resource());
+    except
+        err=exception.catch(errorInfo());
+        if err.type="XMLHTTPError" then
+            return False;
+        endif;
+        raise;
+    endtry;
+    // Если запрос идет через прокси сервер, то
+    // можно получить полноценный ответ , а не
+    // исключение XMLHTTPError.
+    if res.status>=400 then
+        if res.status=404 then
+            return False;
+        endif;
+        msg=res.responseText;
+        env=new Structure("url,res",server_resource(),res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+    return True;
 endfunction
 
-function Database(url,name) export
-    return thisobject.getForm("Database").init(url,name);
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_all_dbs()
+//  Возвращает список баз на сервере
+//
+//  Возвращает:
+//      <array>
+//
+function server_all_dbs() export
+    return get_json(server_resource("_all_dbs")).data;
 endfunction
 
-function Session() export
-    return thisobject.getForm("Session").init();
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_version()
+//  Возвращает версию сервера
+//
+//  Возвращает:
+//      <string>
+//
+function server_version() export
+    return get_json(server_resource()).data["version"];
 endfunction
 
-function Server(url="http://localhost:5984/",full_commit=True) export
-    return thisobject.getForm("Server").init(url,full_commit);
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_config()
+//  Возвращает конфигурацию сервера
+//
+//  Возвращает:
+//      <map>
+//
+function server_config() export
+    return get_json(server_resource("_config")).data;
 endfunction
 
-function Resource(url,session=undefined,headers=undefined) export
-    return thisobject.getForm("Resource").init(url,session,headers);
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_stats()
+//  Возвращает статистику сервера
+//
+//  Возвращает:
+//      <map>
+//
+function server_stats() export
+    return get_json(server_resource("_stats")).data;
 endfunction
 
-function PermView(url,name,wrapper=undefined,session=undefined) export
-    return thisobject.getForm("PermView").init(url,name,wrapper,session);
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_tasks()
+//  Возвращает список активных задач
+//
+//  Возвращает:
+//      <array>
+//
+function server_tasks() export
+    return get_json(server_resource("_active_tasks")).data;
 endfunction
 
-function TempView() export
-    return thisobject.getForm("TempView").init();
+/////////////////////////////////////////////////////////////////////////////
+
+//function server_uuids(count=undefined)
+//  Возвращает набор уникальных идентификаторов.
+//
+//  Параметры:
+//      count <number> -- количество возвращаемых uuid
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Если `count` передан как `undefined`, то будет
+//      возвращено столько uuid, сколько это возможно.
+//
+function server_uuids(count=undefined) export
+    if count=undefined then
+        res=get_json(server_resource("_uuids"));
+    else
+        res=get_json(server_resource("_uuids"),new Structure("count",count));
+    endif;
+    return res.data["uuids"];
 endfunction
 
-VERSION="0.0.1.0";
+/////////////////////////////////////////////////////////////////////////////
+// Database methods
+/////////////////////////////////////////////////////////////////////////////
+
+//function database(dbname=undefined)
+//  Привязывает обработку к базе.
+//
+//  Параметры:
+//      dbname <string> - имя базы
+//
+//  Возвращает:
+//      <string> -- имя базы, с которой связаны обработка
+//      <undefined> -- если обработка не связана с базой
+//
+//  Описание:
+//      Привязывает обработку к базе на сервере, с которым уже должна
+//      быть связана обработка. Чтобы отвязать обработку от базы,
+//      необходимо вызвать этот метод с параметром Null
+//
+//      База может еще не сущестовать.
+//
+//      Имя базы должно соответствовать требованию couchdb и удовлетворять
+//      паттерн: ^[a-z][a-z0-9_$()+-/]*$
+//
+function database(dbname=undefined) export
+    if dbname=undefined then
+        return _dbname;
+    elsif dbname=null then
+        _dbname=undefined;
+        _database_url=undefined;
+    else
+        _dbname=validate_dbname(dbname);
+        _database_url=server_resource(_dbname);
+    endif;
+    return _dbname;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function database_create()
+//  Создает базу на сервере
+//
+function database_create() export
+    return put_json(database_resource()).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function database_delete()
+//  Удаляет базу с сервера
+//
+function database_delete() export
+    return delete_json(database_resource()).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function database_exists()
+//  Проверяет существование базы на сервере
+//
+//  Возвращает:
+//      <boolean>
+//
+function database_exists() export
+    res=head_raw(database_resource());
+    if res.status>=400 then
+        if res.status=404 then
+            return False;
+        endif;
+        msg=res.responseText;
+        env=new Structure("url,res",database_resource(),res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function database_all_docs(options=undefined)
+//  Возвращает список id документов в базе.
+//
+//  Параметры:
+//      options <structure>,<map> -- параметры запроса. (см. view)
+//
+//  Возвращает:
+//      <array>
+//
+function database_all_docs(options=undefined) export
+    res=new Array();
+    for each item in view("_all_docs",options)["rows"] do
+        res.add(item["id"]);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function database_doc_count()
+//  Возвращает количество документов в базе
+//
+//  Возвращает:
+//      <number>
+//
+function database_doc_count() export
+    return get_json(database_resource()).data["doc_count"];
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Document methods
+/////////////////////////////////////////////////////////////////////////////
+
+//function document(docid=undefined)
+//  Привязывает обработку к документу.
+//
+//  Параметры:
+//      docid <string> - id документа
+//
+//  Возвращает:
+//      <string> -- id документа, с которой связаны обработка
+//      <undefined> -- если обработка не связана с документом
+//
+//  Описание:
+//      Привязывает обработку к документу.
+//      Обработка должна быть уже связана с базой и сервером.
+//
+//      Чтобы отвязать обработку от документа, необходимо вызвать
+//      этот метод с параметром Null
+//
+function document(docid=undefined) export
+    if docid=undefined then
+        return _docid;
+    elsif docid=null then
+        _docid=undefined;
+        _document_url=undefined;
+    else
+        _docid=docid;
+        _document_url=database_resource(docid);
+    endif;
+    return _docid;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_exists()
+//  Проверяет существование документа
+//
+//  Возвращает:
+//      <boolean>
+//
+function document_exists() export
+    res=head_raw(document_resource());
+    if res.status>=400 then
+        if res.status=404 then
+            return False;
+        endif;
+        msg=res.responseText;
+        env=new Structure("url,res",document_resource(),res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+    return True;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_rev()
+//  Возвращает текущую ревизию документа
+//
+//  Возвращает:
+//      <string>
+//
+function document_rev() export
+    res=head(document_resource());
+    etag=res["headers"].get("Etag");
+    if etag<>undefined then
+        rev=string.strip(etag,"""");
+    else
+        // windows couchdb сервер вопреки ожиданиям не возвращает
+        // Etag хедер, приходится прибегать к брутальным методикам
+        rev=document_load()["_rev"];
+    endif;
+    return rev;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_all_revs()
+//  Возвращает все номера ревизий документа
+//
+//  Возвращает:
+//      <array>
+//
+function document_all_revs() export
+    revs=new Array();
+    res=get_raw(document_resource(),new Structure("revs",true));
+    if res.status>=400 then
+        if res.status=404 then
+            return revs;
+        endif;
+        msg=res.responseText;
+        env=new Structure("url,res",document_resource(),res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+    doc=json.decode(res.data);
+    startrev=doc["_revisions"]["start"];
+    i=0;
+    for each id in doc["_revisions"]["ids"] do
+        index=strreplace(format(startrev-i,"NZ=0;NDS=."),chars.nbsp,"");
+        revs.add(index+"-"+id);
+        i=i+1;
+    enddo;
+    return revs;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_load(options=undefined)
+//  Возвращает документ по его id
+//
+//  Параметры:
+//      id <string> -- id документа
+//
+//  Возвращает:
+//      <map>
+//
+function document_load(options=undefined) export
+    return get_json(document_resource(),undefined,options).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_save(doc=undefined,options=undefined)
+//  Создает документ в базе или обновляет уже существующий.
+//
+//  Параметры:
+//        doc <map>
+//
+//  Возвращает:
+//      <Array(id,rev)>
+//
+//  Описание:
+//      Попытка обновить документ с неправильным или отличным 
+//      от текущего полем _rev вызовет исключение ResourceConfict.
+//
+//      По завершению создания или обновления документа в базе, у переданного
+//      объекта обновляются поля _id и _rev.
+//
+//      Возвращает массив, содержащий новые id и rev.
+//
+function document_save(doc=undefined,options=undefined) export
+    if doc=undefined then
+        doc=new map();
+    else
+        if typeof(doc)=type("structure") then
+            rev=undefined;
+            if doc.property("_rev") then
+                rev=doc["_rev"];
+            endif;
+        else
+            rev=doc["_rev"];
+        endif;
+    endif;
+    if rev<>undefined then
+        if options=undefined then
+            options=new Structure();
+        endif;
+        options.insert("rev",rev);
+    endif;
+    doc.insert("_id",_docid);
+    res=put_json(document_resource(),doc,options).data;
+    doc.insert("_id",res["id"]);
+    if res["rev"]<>undefined then //Not present for batch='ok'
+        doc.insert("_rev",res["rev"]);
+    endif;
+    return pair(res["id"],res["rev"]);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_delete(rev)
+//  Удаляет документ из базы.
+//
+//  Параметры:
+//      rev <string> -- ревизия документа
+//
+//  Описание:
+//      Метод специально не делает автоматический запрос последней ревизии,
+//      чтобы решить вопрос конкурентного доступа к документу.
+//
+function document_delete(rev) export
+    return delete_json(document_resource(),new Structure("rev",rev)).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_attachment_get(filename,default=undefined)
+//  Возвращает прикрепленный файл filename или default, если его нет.
+//
+//  Параметры:
+//       filename <string> -- имя прикрепленного файла
+//        default <any> -- возвращаемое значение в случае отсутствия 
+//                         файла или документа
+//  Возвращает:
+//      <binarydata>
+//
+function document_attachment_get(filename,default=undefined) export
+    res=get_raw(document_resource(filename));
+    if res.status>=400 then
+        if res.status=404 then
+            return default;
+        endif;
+        msg=res.responseText;
+        env=new Structure("filename,res",filename,res);
+        raise httplib.HTTPError(res.status,msg,env);
+    endif;
+    return xmlvalue(type("binarydata"),res.data);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function document_attachment_put(content,filename=undefined,content_type=undefined)
+//  Прикрепляет данные content к документу doc с именем filename.
+//
+//  Параметры:
+//           content -- <string>,<binarydata>,<file> файл или путь к нему
+//          filename -- <string> имя файла в документе
+//      content_type -- <string> ручная установка MIME-тип данных,
+//                      по умолчанию угадывается по расширению файла
+//
+function document_attachment_put(content,filename=undefined,content_type=undefined) export
+    raise exception.NotImplementedError();
+    if typeof(content)=type("string") then
+        if filename=undefined then
+            filename=string.rsplit(strreplace(content,"/","\"),"\",1)[1];
+        endif;
+        data=xmlstring(new binarydata(content));
+    elsif typeof(content)=type("file") then
+        if filename=undefined then
+            filename=content.name;
+        endif;
+        data=xmlstring(new binarydata(content.path));
+    elsif typeof(content)=type("binarydata") then
+        if filename=undefined then
+            msg="For binary data `filename` must be setted";
+            env=new structure("content,filename,content_type",
+                               content,filename,content_type);
+            raise exception.ValueError(msg,env);
+        endif;
+        data=xmlstring(content);
+    else
+        raise exception.ValueError(
+            "Binary data expected or path to file",
+            new Structure(content,filename,content_type));
+    endif;
+    if content_type=undefined then
+        content_type="application/binary";
+    endif;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// View methods
+/////////////////////////////////////////////////////////////////////////////
+
+function view(val view_name,options=undefined) export
+    if not string.startswith(view_name,"_") then
+        l=string.split(view_name,"/",1);
+        design=l[0];
+        name=l[1];
+        view_name="_design/"+design+"/_view/"+name;
+    endif;
+    if options=undefined then
+        return get_json(database_resource(view_name)).data;
+    endif;
+    _options=new map();
+    for each item in options do
+        if (item.key="key" or item.key="startkey" or item.key="endkey")
+            and not check.is_string(item.value) then
+            _options.insert(item.key,json.encode(item.value));
+        else
+            _options.insert(item.key,item.value);
+        endif;
+    enddo;
+    return get_json(database_resource(view_name),_options).data;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Misc methods
+/////////////////////////////////////////////////////////////////////////////
+
+function set_object_value(obj,doc,field)
+    field_val=doc[field];
+    if field_val=undefined then
+        return undefined;
+    endif;
+    metainfo=metadata.findbytype(typeof(obj));
+    if typeof(field_val)<>typeof(obj[field]) then
+        if field_val=null then
+            vx=undefined;
+        else
+            if metainfo.attributes.find(field)<>undefined then
+                for each type in metainfo.attributes[field].type.Types() do
+                    try
+                        vx=xmlvalue(type,doc[field]);
+                        break;
+                    except
+                        message(type)
+                    endtry;
+                enddo;
+            else
+                vx=xmlvalue(typeof(obj[field]),doc[field]);
+            endif;
+        endif;
+        if vx<>obj[field] then
+            obj[field]=vx;
+        endif;
+    elsif field_val<>obj[field] then
+        obj[field]=field_val;
+    endif;
+endfunction
+
+function genid(obj=undefined) export
+    if obj=undefined then
+        return string(new uuid());
+    endif;
+    metainfo=metadata.findbytype(typeof(obj));
+    if metainfo=undefined then
+        raise exception.ValueError("Metadata object excepted",
+                                    new Structure("obj",obj));
+    endif;
+
+    metatype=metautils.guess_type(metainfo);
+    if metatype=Constants then
+        // получаем uuid типа
+        id=string.slice(ValueToStringInternal(typeof(obj)),5,41);
+    elsif metatype=Enums then
+        // получаем uuid ссылки + порядовый номер, чтобы можно было
+        // собрать обратно
+        id=string.slice(ValueToStringInternal(obj),42,-1);
+    elsif metatype=InformationRegisters or metatype=AccumulationRegisters then
+        attrs=new Array();
+        for each attr in metainfo.dimensions do
+            attrs.add(obj[attr.name]);
+        enddo;
+        NonPeriodical=metadata.ObjectProperties
+                              .InformationRegisterPeriodicity
+                              .Nonperiodical;
+        RecorderPosition=metadata.ObjectProperties
+                                 .InformationRegisterPeriodicity
+                                 .Nonperiodical;
+        periodicity=metainfo.InformationRegisterPeriodicity;
+        if periodicity<>NonPeriodical then
+            attrs.add(?(periodicity=RecorderPosition,
+                        obj["recorder"],
+                        obj["period"]));
+        endif;
+        // CRC64 не самая лучшая идея, но ничего другого у нас нет.
+        // Cоставной хеш упростит сортировку и фильтрацию.
+        // Чтобы операция не была тяжелой закешируем результат
+        inforeg_name_hash=cache.get("hashes.crc64."+metainfo.name);
+        if inforeg_name_hash=undefined then
+            inforeg_name_hash=hashlib.crc64(metainfo.name);
+            cache.set("hashes.crc64."+metainfo.name,inforeg_name_hash);
+        endif;
+        // Cмысл кешировать данные измерений нулевой, если только
+        // записи регистров очень часто обновляются. Но это не наш случай.
+        id=inforeg_name_hash+hashlib.crc64(string.join("|",attrs));
+    elsif metatype=Catalogs 
+        or metatype=Documents 
+        or metatype=ChartsOfCharacteristicTypes
+    then
+        id=xmlstring(obj.ref);
+    else
+        raise exception.TypeError("Unsupported type",
+                                  new Structure("obj,metainfo,metatype",
+                                                 obj,metainfo,metatype));
+    endif;
+    return id;
+endfunction
+
+function doc2obj(doc) export
+    type_uuid=doc[".metainfo"]["type"];
+    objtype=ValueFromStringInternal("{""T"","+type_uuid+"}");
+    if objtype<>type("undefined") then
+        metainfo=metadata.findByType(objtype);
+    else
+        fullname=doc[".metainfo"]["class"]+"."+doc[".metainfo"]["name"];
+        metainfo=metadata.findByFullName(fullname);
+    endif;
+    if metainfo=undefined then
+        raise exception.ValueError("Couldnt determ type of 1C object",
+                                    new Structure("doc",doc));
+    endif;
+    
+    metatype=metautils.guess_type(metainfo);
+    if metatype=Constants then
+        return Constants[metainfo.name];
+    elsif metatype=Enums then
+        return ValueFromStringInternal("{""#"","+type_uuid+","+doc["_id"]+"}");
+    elsif metatype=InformationRegisters or metatype=AccumulationRegisters then
+        raise exception.NotImplementedError();
+    elsif metatype=Catalogs
+        or metatype=Documents
+        or metatype=ChartsOfCharacteristicTypes
+        or metatype=Tasks
+    then
+        manager=metatype[metainfo.name];
+        ref=manager.getref(new uuid(doc["ref"]));
+        if not ref.isempty() then
+            obj=ref.getobject();
+        else
+            if metatype=Catalogs
+               or metatype=ChartsOfCharacteristicTypes
+            then
+                if doc["isfolder"] then
+                    obj=manager.createFolder();
+                else
+                    obj=manager.createItem();
+                endif;
+            elsif metatype=Documents then
+                obj=manager.createDocument();
+            elsif metatype=Tasks then
+                obj=manager.createTasks();
+            endif;
+            obj.setNewObjectRef(ref);
+        endif;
+        set_object_value(obj,doc,"deletionmark");
+        if metatype=Documents or metatype=Tasks then
+            set_object_value(obj,doc,"number");
+            set_object_value(obj,doc,"date");
+            if metatype=Tasks then
+                set_object_value(obj,doc,"description");
+            endif;
+            // Обработка значений `posted` и `executed`
+            // для документов и задач должна проводиться на
+            // уровне 1С стандартными методами.
+        elsif metatype=Catalogs or metatype=ChartsOfCharacteristicTypes then
+            set_object_value(obj,doc,"code");
+            set_object_value(obj,doc,"description");
+            set_object_value(obj,doc,"parent");
+            if metatype=Catalogs then
+                set_object_value(obj,doc,"owner");
+            else
+                set_object_value(obj,doc,"valuetype");
+            endif;
+        endif;
+        for each attr in metainfo.attributes do
+            set_object_value(obj,doc,attr.name);
+        enddo;
+        for each ts in metainfo.tabularsections do
+            for each row in doc[ts.name] do
+                tsrow=obj[ts.name].add();
+                for each attr in ts.attributes do
+                    set_object_value(tsrow,row,attr.name);
+                enddo;
+            enddo;
+        enddo;
+    endif;
+    return obj;
+endfunction
+
+function obj2doc(obj) export
+    metainfo=metadata.findbytype(typeof(obj));
+    doc=convert.to_map(obj);
+    doc.insert("_id",genid(obj));
+    doc.insert(".metainfo",new map());
+    doc[".metainfo"].insert("class",string.split(metainfo.fullname(),".")[0]);
+    doc[".metainfo"].insert("name",metainfo.name);
+    // получаем uuid типа
+    type_uuid=string.slice(ValueToStringInternal(typeof(obj)),5,41);
+    doc[".metainfo"].insert("type",type_uuid);
+    return doc;
+endfunction
+
+VERSION="0.0.0.7";

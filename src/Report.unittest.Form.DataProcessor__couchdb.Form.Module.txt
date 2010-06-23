@@ -1,0 +1,453 @@
+﻿var couchdb;
+
+function set_up() export
+    couchdb=DataProcessors.couchdb.create();
+endfunction
+
+function server_set_up()
+    couchdb.server("http://localhost:5984/");
+endfunction
+
+function database_set_up()
+    server_set_up();
+    couchdb.database("couch1c-test");
+    if couchdb.database_exists() then
+        couchdb.database_delete();
+    endif;
+    couchdb.database_create();
+endfunction
+
+function document_set_up()
+    database_set_up();
+    couchdb.document("foo");
+    couchdb.document_save();
+    couchdb.document("bar");
+    couchdb.document_save();
+endfunction
+
+function get_suite() export
+    suite=new Array();
+    // low-level api tests
+    suite.add("request");
+    suite.add("server__Bind");
+    suite.add("server__Unbind");
+    suite.add("server_exists");
+    suite.add("server_exists");
+    suite.add("server_all_dbs");
+    suite.add("server_version");
+    suite.add("server_config");
+    suite.add("server_stats");
+    suite.add("server_tasks");
+    suite.add("server_uuids");
+    suite.add("server_uuids__NegativeNumericArgument__ServerError");
+    suite.add("database__Bind");
+    suite.add("database__Unbind");
+    suite.add("database__InvalidDatabaseName_1__ValueError");
+    suite.add("database__InvalidDatabaseName_2__ValueError");
+    suite.add("database__InvalidDatabaseName_3__ValueError");
+    suite.add("database_create");
+    suite.add("database_create__DuplicateCreate__PreconditionFailed");
+    suite.add("database_exists");
+    suite.add("database_delete");
+    suite.add("database_delete__DatabaseDoesntExists__ResourceNotFound");
+    suite.add("database_doc_count");
+    suite.add("database_all_docs");
+    suite.add("document__Bind");
+    suite.add("document__Unbind");
+    suite.add("document_save__New__Map__Pass");
+    suite.add("document_save__New__Structure__Pass");
+    suite.add("document_save__New__Batch__Pass");
+    suite.add("document_save__Existing");
+    suite.add("document_save__Existing__Batch__Pass");
+    suite.add("document_save__Unicode");
+    suite.add("document_save__InvalidRevision__ResourceConflict");
+    suite.add("document_save__InvalidRevisionFormat__BadRequest");
+    suite.add("document_save__ID_quoting__Pass");
+    suite.add("document_exists");
+    suite.add("document_load");
+    suite.add("document_load__UnicodeID");
+    suite.add("document_load__NonExistenDocument__ResourceNotFound");
+    return suite;
+endfunction
+
+function tear_down() export
+    try
+        couchdb.database("couch1c-test");
+        couchdb.database_delete();
+    except
+    endtry;
+    couchdb=undefined;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Low level API
+/////////////////////////////////////////////////////////////////////////////
+
+function request()
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Server methods
+/////////////////////////////////////////////////////////////////////////////
+
+function server__Bind() export
+    url=couchdb.server();
+    assert.is_undefined(url);
+    url=couchdb.server("http://localhost/");
+    assert.is_equal(url,"http://localhost/");
+    url=couchdb.server();
+    assert.is_equal(url,"http://localhost/");
+endfunction
+
+function server__Unbind() export
+    url=couchdb.server("http://localhost/");
+    assert.is_equal(url,"http://localhost/");
+    url=couchdb.server(null);
+    assert.is_undefined(url);
+endfunction
+
+function server_exists() export
+    server_set_up();
+    assert.is_true(couchdb.server_exists());
+    couchdb.server("http://localhost:9999");
+    assert.is_false(couchdb.server_exists());
+endfunction
+
+function server_all_dbs() export
+    server_set_up();
+    dbs=couchdb.server_all_dbs();
+    assert.is_array(dbs);
+endfunction
+
+function server_version() export
+    server_set_up();
+    version=couchdb.server_version();
+    assert.is_string(version);
+endfunction
+
+function server_config() export
+    server_set_up();
+    config=couchdb.server_config();
+    assert.is_map(config);
+endfunction
+
+function server_stats() export
+    server_set_up();
+    stats=couchdb.server_stats();
+    assert.is_map(stats);
+endfunction
+
+function server_tasks() export
+    server_set_up();
+    tasklist=couchdb.server_tasks();
+    assert.is_array(tasklist);
+endfunction
+
+function server_uuids() export
+    server_set_up();
+    uuids=couchdb.server_uuids();
+    assert.is_array(uuids);
+    uuids=couchdb.server_uuids(10);
+    assert.is_array(uuids);
+    assert.is_equal(uuids.count(),10);
+endfunction
+
+function server_uuids__NegativeNumericArgument__ServerError() export
+    server_set_up();
+    couchdb.server_uuids(-1);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Database methods test
+/////////////////////////////////////////////////////////////////////////////
+
+function database__Bind() export
+    server_set_up();
+    dbname=couchdb.database("couch1c-test");
+    assert.is_equal(dbname,"couch1c-test");
+    dbname=couchdb.database();
+    assert.is_equal(dbname,"couch1c-test");
+endfunction
+
+function database__Unbind() export
+    server_set_up();
+    dbname=couchdb.database("couch1c-test");
+    assert.is_equal(dbname,"couch1c-test");
+    dbname=couchdb.database(null);
+    assert.is_undefined(dbname);
+endfunction
+
+function database__InvalidDatabaseName_1__ValueError() export
+    server_set_up();
+    couchdb.database("1C");
+endfunction
+
+function database__InvalidDatabaseName_2__ValueError() export
+    server_set_up();
+    couchdb.database("xуz");
+endfunction
+
+function database__InvalidDatabaseName_3__ValueError() export
+    server_set_up();
+    couchdb.database("_abc");
+endfunction
+
+function database_create() export
+    server_set_up();
+    couchdb.database("couch1c-test");
+    couchdb.database_create();
+endfunction
+
+function database_create__DuplicateCreate__PreconditionFailed() export
+    server_set_up();
+    couchdb.database("couch1c-test");
+    couchdb.database_create();
+    couchdb.database_create();
+endfunction
+
+function database_exists() export
+    server_set_up();
+    couchdb.database("couch1c-test");
+    res=couchdb.database_exists();
+    assert.is_boolean(res);
+    assert(not res);
+    couchdb.database_create();
+    res=couchdb.database_exists();
+    assert.is_boolean(res);
+    assert(res);
+endfunction
+
+function database_delete() export
+    server_set_up();
+    couchdb.database("couch1c-test");
+    couchdb.database_create();
+    couchdb.database_delete();
+endfunction
+
+function database_delete__DatabaseDoesntExists__ResourceNotFound() export
+    server_set_up();
+    couchdb.database("couch1c-test");
+    couchdb.database_delete();
+endfunction
+
+function database_doc_count() export
+    document_set_up();
+    count=couchdb.database_doc_count();
+    assert.is_number(count);
+    assert.is_equal(count,2);
+endfunction
+
+function database_all_docs() export
+    database_set_up();
+
+    docs=couchdb.database_all_docs();
+    assert.is_array(docs);
+    assert.is_equal(docs.count(),0);
+
+    document_set_up();
+
+    docs=couchdb.database_all_docs();
+    assert.is_array(docs);
+    assert.is_equal(docs.count(),2);
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+// Document methods test
+/////////////////////////////////////////////////////////////////////////////
+
+function document__Bind() export
+    database_set_up();
+    docid=couchdb.document();
+    assert.is_undefined(docid);
+    docid=couchdb.document("foo");
+    assert.is_equal(docid,"foo");
+    docid=couchdb.document();
+    assert.is_equal(docid,"foo");
+endfunction
+
+function document__Unbind() export
+    database_set_up();
+    docid=couchdb.document("foo");
+    assert.is_equal(docid,"foo");
+    docid=couchdb.document(null);
+    assert.is_undefined(docid);
+endfunction
+
+function document_save__New__Map__Pass() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new map();
+    doc.insert("undefined field",undefined);
+    doc.insert("null field",null);
+    doc.insert("boolean field",true);
+    doc.insert("numeric field",-3.14);
+    doc.insert("string field","foo");
+    doc.insert("unicode field","бар");
+    doc.insert("date field",currentdate());
+    doc.insert("array field",new array());
+    doc.insert("object field",new map());
+    res=couchdb.document_save(doc);
+    assert.is_array(res);
+    id=res[0];
+    rev=res[1];
+    assert.hasattr(doc,"_id");
+    assert.hasattr(doc,"_rev");
+    assert.is_equal(id,doc["_id"]);
+    assert.is_equal(rev,doc["_rev"]);
+endfunction
+
+function document_save__New__Structure__Pass() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new Structure();
+    doc.insert("undefined",undefined);
+    doc.insert("null",null);
+    doc.insert("boolean",true);
+    doc.insert("numeric",-3.14);
+    doc.insert("string","foo");
+    doc.insert("unicode","бар");
+    doc.insert("date",currentdate());
+    doc.insert("array",new array());
+    doc.insert("object",new map());
+    res=couchdb.document_save(doc);
+    assert.is_array(res);
+    id=res[0];
+    rev=res[1];
+    assert.hasattr(doc,"_id");
+    assert.hasattr(doc,"_rev");
+    assert.is_equal(id,doc["_id"]);
+    assert.is_equal(rev,doc["_rev"]);
+endfunction
+
+function document_save__New__Batch__Pass() export
+    database_set_up();
+    couchdb.document("foo");
+    doc=new structure();
+    res=couchdb.document_save(doc,new structure("batch","ok"));
+    assert.is_array(res);
+    rev=res[1];
+    assert.is_undefined(rev);
+    assert(not doc.property("_rev"));
+endfunction
+
+function document_save__Existing() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new map();
+    doc.insert("foo","bar");
+    res1=couchdb.document_save(doc);
+    res2=couchdb.document_save(doc);
+    assert.is_equal(res1[0],doc["_id"]);
+    assert.is_equal(res2[0],doc["_id"]);
+    assert.is_equal(res2[1],doc["_rev"]);
+    assert.is_not_equal(res1[1],doc["_rev"]);
+endfunction
+
+function document_save__Existing__Batch__Pass() export
+    database_set_up();
+    couchdb.document("foo");
+    doc=new structure();
+    res=couchdb.document_save(doc);
+    old_rev=res[1];
+    res=couchdb.document_save(doc,new structure("batch","ok"));
+    new_rev=res[1];
+    assert.is_undefined(new_rev);
+    assert.is_equal(doc["_rev"],old_rev);
+endfunction
+
+function document_save__EmptyDoc() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new map();
+    res=couchdb.document_save(doc);
+    id=res[0];
+    rev=res[1];
+    assert.hasattr(doc,"_id");
+    assert.hasattr(doc,"_rev");
+    assert.is_equal(id,doc["_id"]);
+    assert.is_equal(rev,doc["_rev"]);
+endfunction
+
+function document_save__Unicode() export
+    database_set_up();
+    couchdb.document("Ѱ");
+    doc=new map();
+    doc.insert("bår","Iñtërnâtiônàlizætiøn");
+    doc.insert("bar","ASCII");
+    couchdb.document_save(doc);
+    doc=couchdb.document_load();
+    assert.is_equal(doc["_id"],"Ѱ");
+    assert.is_equal(doc["bår"],"Iñtërnâtiônàlizætiøn");
+    assert.is_equal(doc["bar"],"ASCII");
+endfunction
+
+function document_save__InvalidRevisionFormat__BadRequest() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new map();
+    res=couchdb.document_save(doc);
+    doc["_rev"]="12345";
+    couchdb.document_save(doc);
+endfunction
+
+function document_save__InvalidRevision__ResourceConflict() export
+    database_set_up();
+    couchdb.document("some_id");
+    doc=new map();
+    res=couchdb.document_save(doc);
+    doc["_rev"]="1-ABCDE";
+    couchdb.document_save(doc);
+endfunction
+
+function document_save__ID_quoting__Pass() export
+    database_set_up();
+    couchdb.document("test/Ѱ");
+    res=couchdb.document_save();
+    id=res[0];
+    assert.is_equal(id,"test/Ѱ");
+endfunction
+
+function document_exists() export
+    document_set_up();
+    couchdb.document("test");
+    assert(not couchdb.document_exists());
+    couchdb.document_save();
+    assert(couchdb.document_exists());
+endfunction
+
+function document_rev() export
+    document_set_up();
+    couchdb.document("foo");
+    res=couchdb.document_save();
+    rev=couchdb.document_rev();
+    assert.is_string(rev);
+    assert.is_equal(rev,res[1]);
+endfunction
+
+function document_load() export
+    document_set_up();
+    couchdb.document("foo");
+    doc=couchdb.document_load();
+    assert.is_map(doc);
+    assert.is_string(doc["_id"]);
+    assert.is_equal(doc["_id"],"foo");
+    assert.is_string(doc["_rev"]);
+endfunction
+
+function document_load__Unicode() export
+    database_set_up();
+    couchdb.document("тест");
+    couchdb.document_save();
+    doc=couchdb.document_load();
+    assert.is_map(doc);
+    assert.is_string(doc["_id"]);
+    assert.is_equal(doc["_id"],"тест");
+    assert.is_string(doc["_rev"]);
+endfunction
+
+function document_load__NonExistenDocument__ResourceNotFound() export
+    database_set_up();
+    couchdb.document("foo");
+    couchdb.document_load();
+endfunction
+

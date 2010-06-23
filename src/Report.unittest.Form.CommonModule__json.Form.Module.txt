@@ -4,6 +4,8 @@ endfunction
 
 function get_suite() export
     suite=new Array();
+    suite.add("decode__EmptyString__ValueError");
+    //
     // наша реализация json.decode более общая и не требует object или array 
     // для преобразования в обязательном порядке.
     //suite.add("decode__JsonPayloadShouldBeAnObjectOrArray__Fail");
@@ -50,6 +52,12 @@ function tear_down() export
 endfunction
 
 /////////////////////////////////////////////////////////////////////////////
+
+function decode__EmptyString__ValueError() export
+    json.decode("");
+endfunction
+
+// JSON Official Tests
 
 function decode__JsonPayloadShouldBeAnObjectOrArray__Fail() export
     json.decode("""A JSON payload should be an object or array, not a string.""");

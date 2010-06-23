@@ -1,12 +1,53 @@
 ﻿var errors;
 
-function expand_name(name)
+//function _split(val s,sep,count=0)
+//  Разбивает строку `s` по разделителю `sep` `count` число раз
+//
+//  Параметры:
+//          s <string> -- исходная строка
+//        sep <string> -- разделитель
+//      count <number> -- количество частей.
+//
+//  Возвращает:
+//      <array>
+//
+//  Описание:
+//      Функция является реализацией канонического строкового метода split.
+//      Если `count`<=0, то будет выполнено максимально возможное количество
+//      делений строки `s`.
+//      Если `count`>0, то будет возвращем массив, состоящий 
+//      максимум из `count` элементов.
+//
+//  P.S. функция является копией string.split, дабы снять внешнюю зависимость
+//
+function _split(val s,sep,count=0)
+    if count<0 then
+        count=0;
+    endif;
+    stack=new Array();
+    seplen=strlen(sep);
+    while True do
+        bay=find(s,sep);
+        if bay=0 then
+            break;
+        endif;
+        stack.add(mid(s,1,bay-1));
+        s=mid(s,bay+seplen);
+        if count<>0 and stack.count()=count then
+            break;
+        endif;
+    enddo;
+    stack.add(s);
+    return stack;
+endfunction
+
+function expand(name)
     l=strlen(name);
-    for i=2 to l do
+    for i=2 to l-1 do
         cc=charcode(mid(name,i,1));
-        if (cc>=60 and cc<=90) 
-            or (cc>=48 and cc<=57) 
-            or (cc>=1040 and cc<=1071) 
+        if (cc>=60 and cc<=90) // A-Z
+            or (cc>=48 and cc<=57) // 0-9
+            or (cc>=1040 and cc<=1071) // А-Я
         then
             name=mid(name,1,i-1)+" "+mid(name,i);
             i=i+1;
@@ -15,53 +56,59 @@ function expand_name(name)
     return strreplace(name,"_"," ");
 endfunction
 
-function reg_error()
-endfunction
-
 function start()
     total=0;
     failed=0;
-    UnittestReport.rows.clear();
     errors=new map();
-    for each item in thisobject.run() do
-        module_row=UnittestReport.rows.add();
-        module_row.name=item.name;
-        for each test in item.tests do
-            test_row=module_row.rows.add();
-            test_row.name=test.value.name;
-            test_row.behavior=test.value.behavior;
-            test_row.result=test.value.result;
-            if test.value.property("tests") then
-                for each subtest in test.value.tests do
-                    row=test_row.rows.add();
-                    row.name=expand_name(subtest.name);
-                    row.behavior=subtest.behavior;
-                    row.result=subtest.result;
-                    total=total+1;
-                    if subtest.result=unittest.result.FAILED then
-                        failed=failed+1;
-                        test_row.result=unittest.result.FAILED;
-                        controls.UnittestReport.expand(test_row,True);
-                        row.rowid=string(new uuid());
-                        errors.insert(row.rowid,subtest.error);
-                    endif;
-                enddo;
-            elsif test_row.result=unittest.RESULT.FAILED then
-                failed=failed+1;
-                controls.UnittestReport.expand(test_row.parent,True);
-                test_row.rowid=string(new uuid());
-                errors.insert(test_row.rowid,test.value.error);
+    name_column=UnittestReport.columns.Name.name;
+    //
+    UnittestReport.rows.clear();
+    for each unit in unittest.units() do
+        names=_split(unit.key,"__");
+        urows=UnittestReport.rows;
+        for each name in names do
+            row=urows.find(name,name_column);
+            if row=undefined then
+                row=urows.add();
+                row.name=name;
             endif;
-            
-            if test_row.result<>unittest.result.FAILED then
-                test_row.result=unittest.result.PASSED;
-            endif;
+            urows=row.rows;
         enddo;
-        module_row.result=test_row.result;
+        suite=unit.value.get_suite();
+        for each fname in suite do
+            UserInterruptProcessing();
+            rows=urows;
+            test=unittest.run_test(unit.value,fname);
+            row=rows.find(test.name,name_column);
+            if row=undefined then
+                row=rows.add();
+                row.name=test.name;
+            endif;
+            rows=row.rows;
+            for each item in test.descr do
+                name="# "+expand(item);
+                row=rows.find(name,name_column);
+                if row=undefined then
+                    row=rows.add();
+                    row.name=name;
+                endif;
+                rows=row.rows;
+            enddo;
+            row.behavior=test.behavior;
+            row.result=test.result;
+            total=total+1;
+            if test.result=unittest.RESULT.FAILED then
+                failed=failed+1;
+                row.rowid=string(new uuid());
+                errors.insert(row.rowid,test.error);
+            endif;
+            controls.ProgressBar.maxValue=total;
+            controls.ProgressBar.value=total-failed;
+            msg="( "+ProgressBar+" / "+controls.ProgressBar.MaxValue+" )";
+            controls.ProgressBar.tooltip=msg;
+            controls.UnittestReport.CurrentRow=row;
+        enddo;
     enddo;
-    controls.ProgressBar.maxValue=total;
-    controls.ProgressBar.value=total-failed;
-    controls.ProgressBar.tooltip="( "+ProgressBar+" / "+controls.ProgressBar.MaxValue+" )";
 endfunction
 
 Procedure PressMakeButton(Button)
@@ -80,10 +127,13 @@ Procedure UnittestReportOnActivateRow(Control)
 EndProcedure
 
 Procedure OnOpen()
-    start();
+    //start();
 EndProcedure
 
-
-
-
-
+Procedure UnittestReportOnRowOutput(control, appearance, row)
+    if row.result=unittest.RESULT.PASSED then
+        appearance.backcolor=new color(139,255,139);
+    elsif row.result=unittest.RESULT.FAILED then
+        appearance.backcolor=new color(255,139,139);
+    endif;
+EndProcedure
