@@ -1,0 +1,88 @@
+﻿function __compile_exstr(func,args=Null)
+    if not check.is_string(func) then
+        raise exception.TypeError();
+    endif;
+    if args<>Null then
+        if not check.is_array_or_fixedarray(args) then
+            raise exception.TypeError();
+        endif;
+        if find(func,"(*args)") then
+            l=args.ubound();
+            params="args[0]";
+            for i=1 to l do
+                params=params+",args["+string(i)+"]";
+            enddo;
+            exstr=strreplace(func,"*args",params);
+        else
+            exstr=string.reformat(func,args);
+        endif;
+    else
+        exstr=func;
+    endif;
+    return exstr;
+endfunction
+
+//function call(func,args=Null)
+function call(func,args=null) export
+    exstr=__compile_exstr(func,args);
+    try
+        return eval(exstr);
+    except
+        err=exception.catch(errorInfo());
+        err.env.insert("func",func);
+        err.env.insert("args",args);
+        exception.throw(err);
+    endtry;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function map(func,*args)
+function map(func,a,b=null,c=null,d=null,
+                    e=null,f=null,g=null,h=null,
+                    i=null,j=null,k=null,l=null,
+                    m=null,n=null,o=null,p=null,
+                    q=null,r=null,s=null,t=null,
+                    u=null,v=null,w=null,x=null,
+                    y=null,z=null) export
+    assert.is_string(func);
+    argstack=array.create(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z);
+    res=new Array(argstack.count());
+    l=argstack.ubound();
+    ml=0;
+    for i=0 to l do
+        ml=max(ml,argstack[i].count());
+    enddo;
+    for i=0 to l do
+        args=new Array(ml);
+        k=argstack[i].ubound();
+        for j=0 to k do
+            args[j]=argstack[i][j];
+        enddo;
+        res[i]=call(func,args);
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function reduce(func,s,initializer=undefined)
+function reduce(func,seq,initializer=undefined) export
+    assert.is_string(func);
+    assert.is_iterable(seq);
+    args=new Array(2);
+    l=seq.ubound();
+    if initializer<>undefined then
+        args.set(0,initializer);
+        start=0;
+    else
+        args.set(0,seq[0]);
+        start=1;
+    endif;
+    start=1;
+    for i=start to l do
+        args.set(1,seq[i]);
+        args.set(0,call(func,args));
+    enddo;
+    return args[0];
+endfunction

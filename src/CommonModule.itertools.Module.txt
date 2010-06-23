@@ -1,0 +1,150 @@
+﻿function compress(data,selectors) export
+    zipped_data=itertools.zip(array.create(data,selectors));
+    res=new Array();
+    for each item in zipped_data do
+        if item[1] then
+            res.add(item[0]);
+        endif;
+    enddo;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+//function detect(func,s)
+function detect(func,s) export
+    try
+        // dirty check for correct function name 
+        // if we dont want code injection
+        temp=new Structure(func,null);
+    except
+        raise exception.ValueError();
+    endtry;
+    if check.is_string(s) then
+        res="";l=strlen(s);
+        exstr="
+        |for i=1 to l do
+        |    item=mid(s,i,1);
+        |    if "+func+"(item) then
+        |        return item;
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_array_or_fixedarray(s) then
+        exstr="
+        |for each item in s do
+        |    if "+func+"(item) then
+        |        return item;
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_structure_or_map(s) then
+        exstr="
+        |for each item in s do
+        |    if "+func+"(item.key,item.value) then
+        |        return item;
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    else
+        raise exception.TypeError();
+    endif;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function select(func,s) export
+    try
+        // dirty check for correct function name 
+        // if we dont want code injection
+        temp=new Structure(func,null);
+    except
+        raise exception.ValueError();
+    endtry;
+    if check.is_string(s) then
+        res="";l=strlen(s);
+        exstr="
+        |for i=1 to l do
+        |    item=mid(s,i,1);
+        |    if "+func+"(item) then
+        |        res=res+item;
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_array_or_fixedarray(s) then
+        res=new Array();
+        exstr="
+        |for each item in s do
+        |    if "+func+"(item) then
+        |        res.add(item);
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_structure_or_map(s) then
+        res=?(check.is_map(s),new Map,new Structure);
+        exstr="
+        |for each item in s do
+        |    if "+func+"(item.value) then
+        |        res.insert(item.key,item.value);
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    endif;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function reject(func,s) export
+    assert.is_string(func);
+    if check.is_string(s) then
+        res="";l=strlen(s);
+        exstr="
+        |for i=1 to l do
+        |    item=mid(s,i,1);
+        |    if not "+func+"(item) then
+        |        res=res+item;
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_array_or_fixedarray(s) then
+        res=new Array();
+        exstr="
+        |for each item in s do
+        |    if not "+func+"(item) then
+        |        res.add(item);
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    elsif check.is_structure_or_map(s) then
+        res=?(typeof(s)=type("structure"),new Structure,new Map);
+        exstr="
+        |for each item in s do
+        |    if not "+func+"(item.value) then
+        |        res.insert(item.key,item.value);
+        |    endif;
+        |enddo;";
+        execute(exstr);
+    endif;
+    return res;
+endfunction
+
+/////////////////////////////////////////////////////////////////////////////
+
+function zip(args) export
+    len=0;
+    for each item in args do
+        len=min(len,item.ubound());
+    enddo;
+    l=args.ubound();
+    res=new Array();
+    for i=0 to len do
+        sub=new Array();
+        for each s in args do
+            sub.add(s[i]);
+        enddo;
+        res.add(sub);
+    enddo;
+    return res;
+endfunction
