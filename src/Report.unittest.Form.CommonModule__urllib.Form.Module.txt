@@ -4,6 +4,8 @@ endfunction
 
 function get_suite() export
     suite=new Array();
+    suite.add("join");
+
     suite.add("unquote__no_escaped_chars");
     suite.add("unquote__escaped_char");
     suite.add("unquote__percent");
@@ -244,6 +246,48 @@ endfunction
 
 /////////////////////////////////////////////////////////////////////////////
 
-function join__schema() export
-    assert.is_equal(urllib.join("http://host:port/res","file.ext?key=value"));
+function join() export
+    // python 2.6 urlparse module tests
+    base="http://a/b/c/d";
+    errors=new array();
+    _map=new map();
+    _map.insert("g:h","g:h");
+    _map.insert("http:g","http://a/b/c/g");
+    _map.insert("http:","http://a/b/c/d");
+    _map.insert("g","http://a/b/c/g");
+    _map.insert("./g","http://a/b/c/g");
+    _map.insert("g/","http://a/b/c/g/");
+    _map.insert("/g","http://a/g");
+    _map.insert("//g","http://g/");
+    _map.insert("?y","http://a/b/c/d?y");
+    _map.insert("g?y","http://a/b/c/g?y");
+    _map.insert("g?y/./x","http://a/b/c/g?y/./x");
+    _map.insert(".","http://a/b/c/");
+    _map.insert("./","http://a/b/c/");
+    _map.insert("..","http://a/b/");
+    _map.insert("../","http://a/b/");
+    _map.insert("../g","http://a/b/g");
+    _map.insert("../..","http://a/");
+    _map.insert("../../g","http://a/g");
+    _map.insert("../../../g","http://a/../g");
+    _map.insert("./../g","http://a/b/g");
+    _map.insert("./g/.","http://a/b/c/g/");
+    _map.insert("/./g","http://a/./g");
+    _map.insert("g/./h","http://a/b/c/g/h");
+    _map.insert("g/../h","http://a/b/c/h");
+    _map.insert("http:g","http://a/b/c/g");
+    _map.insert("http:","http://a/b/c/d");
+    _map.insert("http:?y","http://a/b/c/d?y");
+    _map.insert("http:g?y","http://a/b/c/g?y");
+    _map.insert("http:g?y/./x","http://a/b/c/g?y/./x");
+    for each item in _map do
+        res=urllib.join(base,item.key);
+        if check.is_not_equal(res,item.value) then
+            errors.add(new structure("base,segment,result,expected",
+                                      base,item.key,res,item.value));
+        endif;
+    enddo;
+    if errors.count()<>0 then
+        assert(false,"URL join failed",new Structure("errors",errors));
+    endif;
 endfunction

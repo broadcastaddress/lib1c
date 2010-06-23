@@ -245,8 +245,7 @@ function unsplit(url) export
     return res;
 endfunction
 
-// Join a base URL and a possibly relative URL to form an absolute
-//    interpretation of the latter.
+//function join(base,url)
 function join(base,url) export
     // Trivial case
     if check.is_false(base) then
@@ -314,14 +313,13 @@ function join(base,url) export
     endif;
     if schemas["uses_netloc"].find(jstr.scheme)<>undefined then
         if jstr.host<>undefined then
-            return url;
+            return urllib.unsplit(jstr);
         endif;
         jstr.username=bstr.username;
         jstr.password=bstr.password;
         jstr.host=bstr.host;
         jstr.port=bstr.port;
     endif;
-
     if jstr.path.count()=0 then
         jstr.path=bstr.path;
         if jstr.query.count()=0 then
@@ -330,12 +328,18 @@ function join(base,url) export
         return urllib.unsplit(jstr);
     endif;
     if jstr.path[0]="" then
+        jstr.path.delete(0);
         return urllib.unsplit(jstr);
     endif;
+    if bstr.path.count()>0 then
+        bstr.path.delete(bstr.path.ubound());
+    endif;
+    
     segments=array.merge(bstr.path,jstr.path);
     if segments[segments.ubound()]="." then
         segments[segments.ubound()]="";
     endif;
+
     while True do
         pos=segments.find(".");
         if pos=undefined then
@@ -343,6 +347,7 @@ function join(base,url) export
         endif;
         segments.delete(pos);
     enddo;
+
     while True do
         i=1;
         n=segments.ubound();
@@ -355,13 +360,15 @@ function join(base,url) export
             endif;
             i=i+1;
         enddo;
-        break;
+        if i>=n then
+            break;
+        endif;
     enddo;
     if segments.count()=2 and segments[0]="" and segments[1]=".." then
         segments[1]="";
     elsif segments.count()>=2 and segments[segments.ubound()]=".." then
         segments.delete(segments.ubound());
-        segments.delete(segments.ubound());
+        segments[segments.ubound()]="";
     endif;
     jstr.path=segments;
     return urllib.unsplit(jstr);
@@ -372,7 +379,7 @@ endfunction
 function query_encode(q) export
     res="";
     for each p in q do
-        res=res+"&"+quote(p.key,"");
+        res=res+"&"+quote(p.key);
         if typeof(p.value)=type("boolean") then
             res=res+"="+?(p.value,"true","false");
         elsif check.is_array_or_fixedarray(p.value) then
@@ -380,11 +387,13 @@ function query_encode(q) export
                 if typeof(item)=type("boolean") then
                     res=res+"[]="+?(item,"true","false");
                 else
-                    res=res+"[]="+quote(convert.to_string(item),"");
+                    res=res+"[]="+quote(convert.to_string(item));
                 endif;
             enddo;
         else
-            res=res+"="+quote(p.value,"");
+            if ValueIsFilled(p.value) then
+                res=res+"="+quote(convert.to_string(p.value));
+            endif;
         endif;
     enddo;
     return mid(res,2);
@@ -405,9 +414,6 @@ endfunction
 
 function path_encode(path) export
     res="";
-    if path.count()>0 and path[0]="" then
-        path.delete(0);
-    endif;
     l=path.ubound();
     if l>=0 then
         res=res+path[0];
