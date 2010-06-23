@@ -28,7 +28,7 @@ function HTTPError(status,msg,env=undefined) export
         return ResourceNotFound(msg,env);
     elsif status=403 then
         return Unauthorized(msg,env);
-    elsif status=401 then
+    elsif status=400 then
         return BadRequest(msg,env);
     elsif status=409 then
         return ResourceConflict(msg,env);
