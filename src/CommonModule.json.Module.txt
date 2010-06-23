@@ -157,12 +157,10 @@ function encoder(expr)
         return encoder(res);
     elsif tval=type("picture") then
         return encoder(xmlstring(expr.getBinaryData()));
-    else
-        raise exception.ValueError(
-                "Unable to convert `expr` to json. No rules how to do that.",
-                new Structure("expr",expr)
-        );
     endif;
+    msg="Unable to convert `expr` to json. No rules how to do that.";
+    env=new Structure("expr",expr);
+    raise exception.ValueError(msg,env);
 endfunction
 
 function scanner(s,idx=1)
@@ -190,6 +188,9 @@ function scanner(s,idx=1)
             endif;
         enddo;
     endif;
+    msg="Unable to parse json string";
+    env=new Structure("s,idx",s,idx);
+    raise exception.ValueError(msg,env);
 endfunction
 
 function scanstring(s,i)
